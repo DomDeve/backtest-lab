@@ -1,0 +1,15 @@
+{
+  "name": "backtest-lab",
+  "version": "0.1.0",
+  "description": "Backtest- und Analyse-Engine für die n8n-Trading-Bots (Capital.com / FTMO). Gleiche JS-Logik wie live.",
+  "type": "module",
+  "bin": { "bt": "bin/bt.js" },
+  "scripts": {
+    "test": "node --test test/*.test.js",
+    "demo": "node tools/gen-synthetic.js --out data/raw/synthetic-de40.json --days 500 && node bin/bt.js run --config config/de40-orb60.json --data data/raw/synthetic-de40.json"
+  },
+  "engines": { "node": ">=20" },
+  "dependencies": {
+    "adm-zip": "^0.5.16"
+  }
+}

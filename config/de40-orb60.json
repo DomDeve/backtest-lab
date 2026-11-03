@@ -1,0 +1,20 @@
+{
+  "name": "DE40 ORB60 – Backtest",
+  "strategy": "de40-orb60",
+  "data": ["data/raw/de40"],
+  "load": { "symbol": "DE40", "source": "capital", "inputTz": "UTC", "defaultSpread": 1.8 },
+  "clean": { "session": { "from": "09:00", "to": "17:30" } },
+  "params": {},
+  "engine": {
+    "startBalance": 30000,
+    "riskPercent": 0.3,
+    "pointValue": 1,
+    "entrySlippagePts": 0,
+    "exitSlippagePts": 0,
+    "stopSlippagePts": 0,
+    "conflictMode": "pessimistic"
+  },
+  "range": {},
+  "live": "data/live/ft_trades.json",
+  "out": "out/de40-orb60"
+}
