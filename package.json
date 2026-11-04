@@ -6,6 +6,8 @@
   "bin": { "bt": "bin/bt.js" },
   "scripts": {
     "test": "node --test test/*.test.js",
+    "live": "node bin/live.js",
+    "audit": "node tools/audit-data.js data/raw",
     "demo": "node tools/gen-synthetic.js --out data/raw/synthetic-de40.json --days 500 && node bin/bt.js run --config config/de40-orb60.json --data data/raw/synthetic-de40.json"
   },
   "engines": { "node": ">=20" },

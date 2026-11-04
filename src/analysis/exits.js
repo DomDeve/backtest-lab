@@ -65,6 +65,7 @@ export const DEFAULT_VARIANTS = [
 ];
 
 export function analyzeExits(trades, bars, variants = DEFAULT_VARIANTS) {
+  variants = variants || DEFAULT_VARIANTS;
   if (!trades.length) return { variants: [], mfe: null };
   const sorted = [...trades].sort((a, b) => a.entryT - b.entryT);
   const half = Math.floor(sorted.length / 2);

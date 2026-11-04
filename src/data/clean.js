@@ -39,9 +39,19 @@ export function cleanBars(raw, options = {}) {
 
   // 1) Einzelkerzen prüfen
   const byT = new Map();
-  for (const b of raw) {
+  for (let b of raw) {
     if (!Number.isFinite(b.t) || keys.some((k) => !Number.isFinite(b[k]))) { rep.dropped.invalid++; continue; }
-    if (b.ao < b.bo - EPS || b.ac < b.bc - EPS || b.ah < b.bh - EPS || b.al < b.bl - EPS) { rep.dropped.askBelowBid++; continue; }
+    if (b.ao < b.bo - EPS || b.ac < b.bc - EPS || b.ah < b.bh - EPS || b.al < b.bl - EPS) {
+      // Gekreuzte Kurse entstehen v. a. beim US-Open (Bid/Ask-Snapshot zu leicht anderen Zeitpunkten).
+      // Leicht gekreuzt -> reparieren (Ask mindestens = Bid), stark gekreuzt -> verwerfen.
+      const worst = Math.max(b.bo - b.ao, b.bc - b.ac, b.bh - b.ah, b.bl - b.al);
+      const maxAbs = o.crossedMaxAbs ?? (b.bc > 10 ? 10 : 0.0005); // Indizes 10 Pkt, FX 5 Pips
+      if (o.repairCrossed !== false && worst <= maxAbs) {
+        b = { ...b, ao: Math.max(b.ao, b.bo), ac: Math.max(b.ac, b.bc), ah: Math.max(b.ah, b.bh), al: Math.max(b.al, b.bl) };
+        b.ah = Math.max(b.ah, b.ao, b.ac); b.al = Math.min(b.al, b.ao, b.ac);
+        rep.repaired.crossed = (rep.repaired.crossed || 0) + 1;
+      } else { rep.dropped.askBelowBid++; continue; }
+    }
     const brokenSide = (h, l, op, cl) => h < Math.max(op, cl) - EPS || l > Math.min(op, cl) + EPS || h < l - EPS;
     if (brokenSide(b.bh, b.bl, b.bo, b.bc) || brokenSide(b.ah, b.al, b.ao, b.ac)) { rep.dropped.ohlcBroken++; continue; }
     if (b.t % step !== 0) { rep.dropped.offGrid++; continue; }
@@ -86,12 +96,14 @@ export function cleanBars(raw, options = {}) {
 
   // 4) Spikes + eingefrorener Feed
   const ranges = [];
+  let medCache = null;
   let run = 1;
   for (let i = 0; i < bars.length; i++) {
     const b = bars[i];
     const rg = b.bh - b.bl;
     if (ranges.length >= 50) {
-      const med = median(ranges.slice(-100));
+      if (i % 25 === 0 || medCache === null) medCache = median(ranges.slice(-100));
+      const med = medCache;
       if (med > 0 && rg > o.spikeFactor * med) {
         b.flags.push('spike');
         rep.flagged.spike++;
@@ -143,7 +155,7 @@ export function summarizeClean(rep) {
   const d = rep.dropped;
   const lines = [
     `Kerzen: ${rep.input} geladen -> ${rep.output} sauber (${rep.dayCount} Handelstage${rep.period ? `, ${rep.period.from} bis ${rep.period.to}` : ''})`,
-    `Entfernt: ungültig ${d.invalid}, Ask<Bid ${d.askBelowBid}, OHLC kaputt ${d.ohlcBroken}, außerhalb Raster ${d.offGrid}, Wochenende ${d.weekend}, Duplikate ${d.duplicate} (davon widersprüchlich ${rep.duplicateConflicts}), Rumpftage ${d.shortDay}`,
+    `Entfernt: ungültig ${d.invalid}, Ask<Bid ${d.askBelowBid} (repariert ${rep.repaired.crossed || 0}), OHLC kaputt ${d.ohlcBroken}, außerhalb Raster ${d.offGrid}, Wochenende ${d.weekend}, Duplikate ${d.duplicate} (davon widersprüchlich ${rep.duplicateConflicts}), Rumpftage ${d.shortDay}`,
     `Markiert: Spread-Ausreißer ${rep.flagged.spreadOutlier}, Spikes ${rep.flagged.spike}, eingefrorener Feed ${rep.flagged.stale}`,
     `Unvollständige Tage (Kernzeit): ${rep.incompleteDays.length}`,
   ];

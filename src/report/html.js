@@ -98,6 +98,7 @@ ${recs || '<p class="muted">Keine Empfehlungen.</p>'}
 <h3>Drawdown in R</h3>${lineChart(dd, { label: 'Drawdown', fill: true })}
 <div class="cols"><div><h3>Ergebnis je Quartal (Σ R)</h3>${barChart(A.stability.quarters.map((q) => ({ ...q, value: q.period })), { valueKey: 'sumR' })}</div>
 <div><h3>Verteilung der Trades (R)</h3>${histogram(result.trades.map((t) => t.R))}</div></div>
+<h3>Ergebnis je Monat (Σ R)</h3>${barChart(A.stability.months.map((q) => ({ ...q, value: q.period.slice(2) })), { valueKey: 'sumR', h: 220 })}
 <p class="muted">Positive Quartale: ${A.stability.positiveQuartersPct ?? '–'} % · positive Monate: ${A.stability.positiveMonthsPct ?? '–'} % · 1. Hälfte Ø ${fR(A.stability.firstHalfAvgR)}, 2. Hälfte Ø ${fR(A.stability.secondHalfAvgR)}</p>
 
 <h2>Wo die Strategie stark und schwach ist</h2>
@@ -130,8 +131,15 @@ ${O ? `<h2>Parameter-Robustheit</h2>
 ${table(O.walkForward.folds, [{ h: 'Abschnitt', k: 'fold' }, { h: 'Training bis', k: 'trainTo' }, { h: 'Test bis', k: 'testTo' }, { h: 'gewählt', f: (r) => `<code>${esc(JSON.stringify(r.params))}</code>` }, { h: 'Test-Trades', k: 'nTest' }, { h: 'Test Ø R', f: (r) => fR(r.testAvgR), c: (r) => cls(r.testAvgR) }])}
 <details><summary>Alle Kombinationen</summary>${table(O.table, [{ h: 'Parameter', f: (r) => `<code>${esc(JSON.stringify(r.params))}</code>` }, { h: 'IS n', k: 'nIS' }, { h: 'IS Ø R', f: (r) => fR(r.isAvgR) }, { h: 'OOS n', k: 'nOOS' }, { h: 'OOS Ø R', f: (r) => fR(r.oosAvgR), c: (r) => cls(r.oosAvgR) }])}</details>` : ''}
 
+${result.events && result.events.placed != null ? `<h2>Orders & Filter</h2>
+<div class="kpis">${kpi('Orders platziert', result.events.placed)}${kpi('gefüllt', result.events.filled, `Füllquote ${pct(result.events.orderFillRate)}`)}${kpi('gelöscht', result.events.cancelled, `davon später gefüllt worden: ${result.events.cancelledWouldFill}`)}${kpi('abgelaufen', result.events.expired)}${result.events.maxLots != null ? kpi('Lots Ø / max', `${result.events.avgLots} / ${result.events.maxLots}`, 'Live-Grenze 20 Lots', result.events.maxLots > 20 ? 'neg' : '') : ''}${kpi('Füllkerze sofort SL', result.events.fillBarStops)}${result.events.dailyHalts != null && result.events.dailyHalts ? kpi('FTMO Tagesstopps', result.events.dailyHalts, '', 'neg') : ''}</div>
+<h3>Woran Signale scheitern (neu auftretende Gründe, nicht jeder 5-Min-Lauf)</h3>${table(result.filterReasons || [], [{ h: 'Grund', k: 'reason' }, { h: 'Anzahl', k: 'n' }])}
+<h3>Order-Sperren durch den Workflow (Combined Check)</h3>${table(Object.entries(result.events.blocked || {}).map(([k, v]) => ({ k, v })), [{ h: 'Sperre', k: 'k' }, { h: 'Läufe', k: 'v' }])}
+${Object.keys(result.events.errors || {}).length ? `<p class="neg">Fehler im Strategie-Code: ${esc(JSON.stringify(result.events.errors))}</p>` : ''}` : ''}
+
 <h2>Daten & Annahmen</h2>
 ${clean ? `<pre style="white-space:pre-wrap;font-size:12px" class="muted">${esc(clean.text)}</pre>` : ''}
+${result.events && result.events.placed != null ? `<p class="muted">Ausführung (Live-Code-Engine): Original-Code-Node läuft alle 5 Min (Mo–Fr 06:00–20:55 Berlin) mit den Kerzen, die der Broker zu diesem Zeitpunkt liefert (Capital: inkl. laufender Kerze; FTMO-Bridge: nur abgeschlossene). Order-Prüfung wie im Workflow. Limit-Orders füllen bei Berührung (Kauf Ask ≤ Limit, Verkauf Bid ≥ Limit), SL/TP serverseitig rund um die Uhr. SL+TP in einer Kerze: SL. In der Füllkerze zählt TP nur bei Schluss jenseits TP. Kein Trailing/Breakeven (im Workflow nicht aktiv), keine Finanzierungskosten, keine News-Sperre (FTMO).</p>` : ''}
 <p class="muted">Ausführung: Signal auf abgeschlossener M5-Kerze, Ausführung zum Open der nächsten Kerze (Kauf Ask, Verkauf Bid). Slippage Einstieg ${result.engine.entrySlippagePts} Pkt, Ausstieg ${result.engine.exitSlippagePts} Pkt, Stop ${result.engine.stopSlippagePts} Pkt, Kommission ${result.engine.commissionPerTrade} €. SL+TP in einer Kerze: ${result.engine.conflictMode === 'pessimistic' ? 'SL zuerst' : 'TP zuerst'}. Keine Finanzierungskosten (Intraday).</p>
 <p class="muted">Parameter: <code>${esc(JSON.stringify(result.params))}</code></p>
 <details><summary>Alle Trades (${result.trades.length})</summary>${table(result.trades, [{ h: 'Datum', k: 'date' }, { h: 'Richtung', k: 'dir' }, { h: 'Signal', k: 'signalHm' }, { h: 'Einstieg', f: (r) => `${r.entryHm} @ ${r.entry}` }, { h: 'SL', k: 'stop' }, { h: 'Ausstieg', f: (r) => `${r.exitHm} @ ${r.exit}` }, { h: 'Grund', k: 'reason' }, { h: 'R', f: (r) => fR(r.R), c: (r) => cls(r.R) }, { h: 'MFE', f: (r) => fR(r.mfeR) }, { h: 'MAE', f: (r) => fR(-r.maeR) }, { h: 'EUR', k: 'pnl' }])}</details>

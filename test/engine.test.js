@@ -35,12 +35,14 @@ test('Zeit: DST-sichere Umrechnung Berlin', () => {
 test('Bereinigung: Duplikat, Ask<Bid, kaputte OHLC, Raster', () => {
   const bars = mkDay('2026-11-02', flat(30));
   const dirty = [...bars, { ...bars[3] }, { ...bars[4], t: bars[4].t + 60000 }];
-  dirty[5] = { ...dirty[5], ao: dirty[5].bo - 1 };
+  dirty[5] = { ...dirty[5], ao: dirty[5].bo - 1 }; // leicht gekreuzt -> repariert
   dirty[6] = { ...dirty[6], bh: dirty[6].bl - 1 };
+  dirty[7] = { ...dirty[7], ac: dirty[7].bc - 100, al: dirty[7].bl - 100, ao: dirty[7].bo - 100 }; // stark gekreuzt -> verworfen
   const c = cleanBars(dirty, { minBarsPerDay: 5 });
   assert.equal(c.report.dropped.duplicate, 1);
   assert.equal(c.report.dropped.offGrid, 1);
   assert.equal(c.report.dropped.askBelowBid, 1);
+  assert.equal(c.report.repaired.crossed, 1);
   assert.equal(c.report.dropped.ohlcBroken, 1);
   assert.equal(c.bars.length, 28);
 });

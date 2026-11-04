@@ -1,0 +1,311 @@
+<meta name="dash-one-writer">
+<style>
+  .bx { font-family: var(--font-anthropic-sans); max-width: 1400px; margin-inline: auto; }
+  .bx h1 { font-family: var(--font-anthropic-serif); font-weight: 400; font-size: var(--cds-font-size-title); margin: 0 0 var(--cds-gap-xs); }
+  .bx .lead { font-size: var(--cds-font-size-body); color: var(--color-fg); margin: 0 0 var(--cds-gap-lg); max-width: 60rem; }
+  .bx .lead b, .bx .kv b { font-weight: 600; }
+  .bx h2 { font-size: var(--cds-font-size-heading); font-weight: var(--cds-font-weight-medium); margin: var(--cds-gap-xl) 0 var(--cds-gap-sm); }
+  .bx .card { background: var(--color-panel); border: 1px solid var(--color-border-line); border-radius: var(--cds-radius); padding: var(--cds-pad-lg); margin-bottom: var(--cds-gap-md); position: relative; }
+  .bx .card h3 { font-size: var(--cds-font-size-heading); font-weight: var(--cds-font-weight-medium); margin: 0; }
+  .bx .note { font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); margin: var(--cds-gap-xs) 0 var(--cds-gap-md); max-width: 70rem; }
+  .bx .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 13rem), 1fr)); gap: var(--cds-gap-md); margin-bottom: var(--cds-gap-md); }
+  .bx .tile { background: var(--color-panel); border: 1px solid var(--color-border-line); border-radius: var(--cds-radius); padding: var(--cds-pad-md) var(--cds-pad-lg); }
+  .bx .tile .lbl { font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); }
+  .bx .tile .big { font-family: var(--font-anthropic-serif); font-size: var(--cds-font-size-title); font-variant-numeric: tabular-nums; }
+  .bx .tile .sub { font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); }
+  .bx .ci { min-height: 120px; }
+  .bx .monthly { min-height: 240px; }
+  .bx .tw { max-height: 640px; overflow: auto; }
+  .bx table { border-collapse: collapse; width: 100%; font-size: var(--cds-font-size-caption); font-variant-numeric: tabular-nums; }
+  .bx th, .bx td { padding: 6px 8px; border-bottom: 1px solid var(--color-border-line); text-align: right; white-space: nowrap; }
+  .bx th:first-child, .bx td:first-child, .bx th.l, .bx td.l { text-align: left; }
+  .bx th { position: sticky; top: 0; background: var(--color-panel); color: var(--color-fg-muted); font-weight: 600; cursor: pointer; z-index: 1; }
+  .bx td.wrap { white-space: normal; min-width: 14rem; }
+  .bx .pos { color: var(--color-ok); } .bx .neg { color: var(--color-bad); } .bx .warn { color: var(--color-warn); }
+  .bx .grp td { background: var(--color-bg); font-weight: 600; text-align: left; color: var(--color-fg); }
+  .bx .controls { display: flex; flex-wrap: wrap; gap: var(--cds-gap-sm); align-items: center; margin-bottom: var(--cds-gap-sm); }
+  .bx input, .bx select { font: inherit; font-size: var(--cds-font-size-caption); padding: 4px 8px; border: 1px solid var(--color-border-line); border-radius: var(--cds-radius); background: var(--color-bg); color: var(--color-fg); }
+  .bx .tip { position: absolute; background: var(--cds-surface-popover); border: 1px solid var(--cds-border); border-radius: var(--cds-radius); box-shadow: var(--cds-shadow-popover); padding: var(--cds-pad-xs) var(--cds-pad-sm); font-size: var(--cds-font-size-caption); pointer-events: none; z-index: 5; max-width: 22rem; }
+  .bx .tip .t { color: var(--cds-text-secondary); }
+  .bx ul.facts { margin: 0; padding-left: 1.1rem; font-size: var(--cds-font-size-body); }
+  .bx ul.facts li { margin: 0 0 var(--cds-gap-xs); }
+  [data-dash-source-state=empty] { color: transparent; }
+  [data-dash-source-state=refreshing] { opacity: .5; }
+</style>
+
+<div class="bx">
+  <h1>Backtest-Vergleich aller Bot-Varianten</h1>
+  <p class="lead">Jede Variante ist der Originalcode deines n8n-Code-Nodes, Kerze für Kerze auf Capital.com-M5-Daten (Sep 2024 – Okt 2026, DE40 ab Jan 2024) durchgespielt, inklusive Order-Prüfung, Lösch-Regel und FTMO-Regeln. Ein belegter Vorteil (Ø R &gt; 0, p &lt; 0,1, beide Zeithälften positiv) zeigt sich bei <b data-draw="npos" data-source="kennzahlen" data-field="belastbar">—</b> von <b data-draw="nall" data-source="kennzahlen" data-field="varianten">—</b> Varianten.</p>
+
+  <div class="tiles">
+    <div class="tile"><div class="lbl">Beste Variante (Ø R minus Standardfehler)</div><div class="big" data-draw="bestname" data-source="kennzahlen" data-field="beste_variante">—</div><div class="sub">Ø je Trade <span data-draw="bestavg" data-source="kennzahlen" data-field="beste_avg_r">—</span>R über <span data-draw="bestn" data-source="kennzahlen" data-field="beste_trades">—</span> Trades</div></div>
+    <div class="tile"><div class="lbl">FTMO-Basis (v5.0-F618ATR-FTMO)</div><div class="big" data-draw="ftmoavg" data-source="varianten" data-field="avg_r" data-where="id=ftmo-basis">—</div><div class="sub">Ø R je Trade · p = <span data-draw="ftmop" data-source="varianten" data-field="p_value" data-where="id=ftmo-basis">—</span></div></div>
+    <div class="tile"><div class="lbl">Varianten des Backtest-Auftrags, die die Basis in beiden Hälften schlagen</div><div class="big" data-draw="ftmobetter" data-source="kennzahlen" data-field="auftrag_besser">—</div><div class="sub">von <span data-draw="ftmocount" data-source="kennzahlen" data-field="auftrag_varianten">—</span> getesteten</div></div>
+    <div class="tile"><div class="lbl">Kandidat aus der Muster-Analyse: FTMO mit SL_MAX 80</div><div class="big" data-draw="slavg" data-source="varianten" data-field="avg_r" data-where="id=ftmo-slmax80">—</div><div class="sub">Ø R je Trade · p = <span data-draw="slp" data-source="varianten" data-field="p_value" data-where="id=ftmo-slmax80">—</span> · nicht vorab getestet, erst Forward-Test</div></div>
+    <div class="tile"><div class="lbl">DE40 LVN – Varianten mit Ø R &gt; 0</div><div class="big" data-draw="de40pos" data-source="kennzahlen" data-field="de40_lvn_positiv">—</div><div class="sub">von den Live-Varianten in d_ilikebigbots</div></div>
+  </div>
+
+  <h2 id="vorteil">Wer hat einen belegten Vorteil?</h2>
+  <div class="card">
+    <h3>Ø Ergebnis je Trade mit 90-%-Intervall</h3>
+    <p class="note">Punkt = Ø R je Trade, Linie = 90-%-Bootstrap-Intervall. Liegt die Linie ganz rechts von 0, ist der Vorteil statistisch belegt. Farbe = Urteil. Gruppiert wie in der Tabelle.</p>
+    <div class="ci" data-draw="ci" data-source="varianten"></div>
+  </div>
+
+  <h2 id="tabelle">Alle Varianten</h2>
+  <div class="card">
+    <h3>Kennzahlen je Variante</h3>
+    <p class="note">R = Vielfaches des geplanten Risikos. „Δ zur Basis“: Ø R gegenüber der Basis der Gruppe, getrennt nach 1. und 2. Zeithälfte. „besser“ heißt: in beiden Hälften mehr Ø R und keine kleinere Summe. Klick auf eine Spalte sortiert.</p>
+    <div class="controls"><input type="search" class="q" placeholder="Variante oder Gruppe suchen" aria-label="Suchen"></div>
+    <div class="tw">
+      <table data-source="varianten" data-row-key="id" class="vt">
+        <thead><tr>
+          <th class="l" data-field="name" data-k="name">Variante</th>
+          <th class="l" data-field="group" data-k="group">Gruppe</th>
+          <th data-field="trades" data-k="trades">Trades</th>
+          <th data-field="trades_per_month" data-k="trades_per_month">/Monat</th>
+          <th data-field="fill_rate" data-k="fill_rate">Füllquote</th>
+          <th data-field="win_rate" data-k="win_rate">Treffer</th>
+          <th data-field="avg_r" data-k="avg_r">Ø R</th>
+          <th data-field="sum_r" data-k="sum_r">Σ R</th>
+          <th data-field="profit_factor" data-k="profit_factor">PF</th>
+          <th data-field="p_value" data-k="p_value">p</th>
+          <th data-field="max_dd_r" data-k="max_dd_r">Max-DD R</th>
+          <th data-field="avg_r_first_half" data-k="avg_r_first_half">Ø 1. Hälfte</th>
+          <th data-field="avg_r_second_half" data-k="avg_r_second_half">Ø 2. Hälfte</th>
+          <th class="l" data-field="verdict" data-k="verdict">Urteil</th>
+          <th data-field="delta_avg_r" data-k="delta_avg_r">Δ zur Basis</th>
+          <th data-field="delta_h1" data-k="delta_h1">Δ 1. H.</th>
+          <th data-field="delta_h2" data-k="delta_h2">Δ 2. H.</th>
+          <th class="l" data-field="better_both_halves" data-k="better_both_halves">besser</th>
+          <th data-field="orders_cancelled" data-k="orders_cancelled">gelöscht</th>
+          <th data-field="cancelled_would_fill" data-k="cancelled_would_fill">davon wäre gefüllt</th>
+          <th class="l" data-field="top_recommendation" data-k="top_recommendation">Wichtigster Hinweis</th>
+        </tr></thead>
+        <tbody data-draw="table"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <h2 id="monate">Ergebnis je Monat</h2>
+  <div class="card">
+    <h3>Σ R je Monat für eine Variante</h3>
+    <p class="note">Zeigt, ob das Ergebnis aus wenigen Ausreißer-Monaten kommt.</p>
+    <div class="controls"><select data-draw="pick" data-source="varianten" aria-label="Variante"></select></div>
+    <div class="monthly" data-draw="monthly" data-source="monate"></div>
+  </div>
+
+  <h2 id="daten">Datenprüfung</h2>
+  <div class="card">
+    <h3>Vollständigkeit der Kursdaten</h3>
+    <p class="note">Geprüft im Zeitfenster, in dem der jeweilige Bot handelt. Fehlende Werktage sind überwiegend Feiertage. Zusätzlich: die DE40-Datei „2021-10-01_to_2024-10-01“ beginnt erst am 01.01.2024, und am 13.10.2025 fehlt der ganze Tag bei DE40 und EURUSD (Dateigrenze).</p>
+    <div class="tw">
+      <table data-source="daten" data-row-key="instrument">
+        <thead><tr>
+          <th class="l" data-field="instrument">Instrument</th>
+          <th class="l" data-field="period_from">von</th>
+          <th class="l" data-field="period_to">bis</th>
+          <th data-field="trading_days">Handelstage</th>
+          <th data-field="window_completeness_pct">Vollständig im Bot-Fenster</th>
+          <th data-field="missing_weekdays">fehlende Werktage</th>
+          <th data-field="days_with_gaps">Tage mit Lücken</th>
+          <th class="l" data-field="largest_gaps">größte Lücken</th>
+        </tr></thead>
+        <tbody data-draw="audit"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <h2 id="methode">Wie gerechnet wurde</h2>
+  <div class="card">
+    <ul class="facts">
+      <li>Strategie: unveränderter Text der Code-Nodes aus <code>d_ilikebigbots</code> und <code>d_ftmo</code>; Testvarianten sind benannte Patches darauf.</li>
+      <li>Lauf alle 5 Minuten (Mo–Fr 06:00–20:55 Berlin) mit den Kerzen, die der Broker zu diesem Zeitpunkt liefert: Capital inklusive laufender Kerze, FTMO-Bridge nur abgeschlossene.</li>
+      <li>Order-Prüfung wie im Workflow: eine Order bzw. Position gleichzeitig, max. 2 Orders pro Tag, 30-Minuten-Sperre, Dubletten-Schutz, Lösch-Regel. FTMO: Freitag 20:30 glattstellen, Tagesstopp 4 %, Risiko 0,5 % fix.</li>
+      <li>Limit-Orders füllen bei Berührung (Kauf: Ask ≤ Limit, Verkauf: Bid ≥ Limit). SL und TP laufen serverseitig rund um die Uhr. Liegen SL und TP in derselben Kerze, zählt der SL.</li>
+      <li>Nicht simuliert: Trailing/Breakeven (im Workflow nicht aktiv), Finanzierungskosten, FTMO-News-Sperre. FTMO-Kurse sind durch Capital-Mittelkurse ersetzt.</li>
+      <li>Abgleich mit Live-Trades war nicht möglich: Die Kursdaten enden am 13.10.2026, die Live-Logs beginnen danach.</li>
+    </ul>
+  </div>
+</div>
+
+<script>
+  const fmtR = (x) => (x === '' || x == null || isNaN(+x)) ? '–' : `${+x > 0 ? '+' : ''}${(+x).toFixed(2)}R`;
+  const fmtP = (x) => (x === '' || x == null || isNaN(+x)) ? '–' : `${Math.round(+x * 100)} %`;
+  const fmtN = (x, d = 2) => (x === '' || x == null || isNaN(+x)) ? '–' : (+x).toFixed(d);
+  const cl = (x) => (x === '' || x == null || isNaN(+x)) ? '' : (+x > 0 ? 'pos' : +x < 0 ? 'neg' : '');
+  const vcl = (v) => v === 'belastbar positiv' ? 'pos' : v === 'positiv, nicht belegt' ? 'warn' : 'neg';
+  const groupOrder = (rows) => [...new Set(rows.map((r) => r.group))];
+
+  dash.calc('kennzahlen', {
+    title: 'Zählungen über alle Varianten',
+    description: 'Anzahl Varianten je Urteil, beste Variante nach Ø R minus Standardfehler-Näherung, Auftrags- und DE40-Zählungen.',
+    inputs: ['varianten'],
+    fn: (varianten) => {
+      const n = (x) => Number(x);
+      const ok = varianten.filter((r) => n(r.trades) >= 30);
+      const score = (r) => n(r.avg_r) - (n(r.avg_r_ci_high) - n(r.avg_r_ci_low)) / 3.29;
+      const best = ok.slice().sort((a, b) => score(b) - score(a))[0] || {};
+      const auftrag = varianten.filter((r) => r.id.startsWith('ftmo-v') || r.id.startsWith('ftmo-combo'));
+      return [{
+        varianten: varianten.length,
+        belastbar: varianten.filter((r) => r.verdict === 'belastbar positiv').length,
+        beste_variante: best.name || '', beste_avg_r: best.avg_r, beste_trades: best.trades,
+        auftrag_varianten: auftrag.length, auftrag_besser: auftrag.filter((r) => r.better_both_halves === 'ja').length,
+        de40_lvn_positiv: varianten.filter((r) => r.group.startsWith('DE40 LVN') && n(r.avg_r) > 0).length,
+      }];
+    },
+  });
+
+  const one = (field, f = (x) => x) => (el) => {
+    const d = dash.data('kennzahlen');
+    el.textContent = d.status === 'ok' && d.data[0] ? f(d.data[0][field]) : '—';
+  };
+  dash.draw('npos', one('belastbar'));
+  dash.draw('nall', one('varianten'));
+  dash.draw('bestname', one('beste_variante'));
+  dash.draw('bestavg', one('beste_avg_r', (x) => (+x > 0 ? '+' : '') + (+x).toFixed(2)));
+  dash.draw('bestn', one('beste_trades'));
+  dash.draw('ftmobetter', one('auftrag_besser'));
+  dash.draw('ftmocount', one('auftrag_varianten'));
+  dash.draw('de40pos', one('de40_lvn_positiv'));
+  const cell = (id, field, f) => (el) => {
+    const d = dash.data('varianten');
+    const r = d.status === 'ok' ? d.data.find((x) => x.id === id) : null;
+    el.textContent = r ? f(r[field]) : '—';
+  };
+  const fR2 = (x) => (+x > 0 ? '+' : '') + (+x).toFixed(2) + 'R';
+  dash.draw('ftmoavg', cell('ftmo-basis', 'avg_r', fR2));
+  dash.draw('ftmop', cell('ftmo-basis', 'p_value', (x) => (+x).toFixed(3)));
+  dash.draw('slavg', cell('ftmo-slmax80', 'avg_r', fR2));
+  dash.draw('slp', cell('ftmo-slmax80', 'p_value', (x) => (+x).toFixed(4)));
+
+  // ---------- Intervall-Diagramm ----------
+  dash.draw('ci', (el) => {
+    const d = dash.data('varianten');
+    el.replaceChildren();
+    if (d.status !== 'ok') { el.textContent = '—'; return; }
+    const rows = d.data.filter((r) => r.avg_r !== '' && Number(r.trades) > 0);
+    const groups = groupOrder(rows);
+    const W = el.clientWidth || 800, rowH = 18, gapH = 26;
+    const items = []; let y = 6;
+    for (const g of groups) { items.push({ g, y }); y += gapH; for (const r of rows.filter((x) => x.group === g)) { items.push({ r, y }); y += rowH; } }
+    const H = y + 28;
+    const svg = d3.select(el).append('svg').attr('width', '100%').attr('viewBox', `0 0 ${W} ${H}`).style('font-family', 'var(--font-anthropic-sans)');
+    const meas = svg.append('text').attr('font-size', 11).text('M');
+    let lw = 0;
+    for (const it of items) if (it.r) { meas.text(it.r.name); lw = Math.max(lw, meas.node().getComputedTextLength()); }
+    meas.remove();
+    const left = Math.min(lw + 12, W * 0.45), right = 16;
+    const lo = d3.min(rows, (r) => +r.avg_r_ci_low), hi = d3.max(rows, (r) => +r.avg_r_ci_high);
+    const x = d3.scaleLinear([Math.min(lo, -0.1), Math.max(hi, 0.1)], [left, W - right]).nice();
+    svg.append('g').selectAll('line').data(x.ticks(6)).join('line').attr('x1', (t) => x(t)).attr('x2', (t) => x(t)).attr('y1', 0).attr('y2', H - 22).attr('stroke', 'var(--cds-chart-grid)');
+    svg.append('line').attr('x1', x(0)).attr('x2', x(0)).attr('y1', 0).attr('y2', H - 22).attr('stroke', 'var(--cds-chart-reference)').attr('stroke-dasharray', '4 3');
+    svg.append('g').selectAll('text').data(x.ticks(6)).join('text').attr('x', (t) => x(t)).attr('y', H - 6).attr('text-anchor', 'middle').attr('font-size', 11).attr('fill', 'var(--color-fg-muted)').text((t) => (t > 0 ? '+' : '') + t.toFixed(2) + 'R');
+    const col = (v) => v === 'belastbar positiv' ? 'var(--color-ok)' : v === 'positiv, nicht belegt' ? 'var(--color-warn)' : 'var(--color-bad)';
+    const tip = d3.select(el).append('div').attr('class', 'tip').style('display', 'none');
+    for (const it of items) {
+      if (it.g) { svg.append('text').attr('x', 0).attr('y', it.y + 16).attr('font-size', 12).attr('font-weight', 600).attr('fill', 'var(--color-fg)').text(it.g); continue; }
+      const r = it.r, cy = it.y + rowH / 2;
+      const g = svg.append('g');
+      g.append('text').attr('x', left - 8).attr('y', cy + 4).attr('text-anchor', 'end').attr('font-size', 11).attr('fill', 'var(--color-fg)').text(r.name);
+      g.append('line').attr('x1', x(+r.avg_r_ci_low)).attr('x2', x(+r.avg_r_ci_high)).attr('y1', cy).attr('y2', cy).attr('stroke', col(r.verdict)).attr('stroke-width', 2).attr('stroke-linecap', 'round').attr('opacity', 0.55);
+      g.append('circle').attr('cx', x(+r.avg_r)).attr('cy', cy).attr('r', 4).attr('fill', col(r.verdict));
+      g.append('rect').attr('x', 0).attr('y', it.y).attr('width', W).attr('height', rowH).attr('fill', 'transparent')
+        .on('mousemove', (ev) => {
+          const [mx, my] = d3.pointer(ev, el);
+          tip.style('display', null).style('left', Math.min(mx + 12, el.clientWidth - 260) + 'px').style('top', (my + 12) + 'px');
+          tip.html('');
+          tip.append('div').attr('class', 't').text(r.group);
+          tip.append('div').text(r.name);
+          tip.append('div').text(`Ø ${fmtR(r.avg_r)} (${fmtR(r.avg_r_ci_low)} … ${fmtR(r.avg_r_ci_high)}) · ${r.trades} Trades · p ${fmtN(r.p_value, 3)}`);
+          tip.append('div').text(r.verdict);
+        })
+        .on('mouseleave', () => tip.style('display', 'none'));
+    }
+  });
+
+  // ---------- Tabelle ----------
+  let sortKey = null, sortDir = 1, query = '';
+  const numCols = new Set(['trades', 'trades_per_month', 'fill_rate', 'win_rate', 'avg_r', 'sum_r', 'profit_factor', 'p_value', 'max_dd_r', 'avg_r_first_half', 'avg_r_second_half', 'delta_avg_r', 'delta_h1', 'delta_h2', 'orders_cancelled', 'cancelled_would_fill']);
+  dash.draw('table', (tb) => {
+    const d = dash.data('varianten');
+    tb.replaceChildren();
+    if (d.status !== 'ok') return;
+    let rows = d.data.slice();
+    if (query) rows = rows.filter((r) => (r.name + ' ' + r.group + ' ' + r.description).toLowerCase().includes(query));
+    if (sortKey) rows.sort((a, b) => { const va = numCols.has(sortKey) ? (a[sortKey] === '' ? -Infinity : +a[sortKey]) : a[sortKey]; const vb = numCols.has(sortKey) ? (b[sortKey] === '' ? -Infinity : +b[sortKey]) : b[sortKey]; return (va > vb ? 1 : va < vb ? -1 : 0) * sortDir; });
+    let lastG = null;
+    for (const r of rows) {
+      if (!sortKey && r.group !== lastG) { lastG = r.group; const gtr = document.createElement('tr'); gtr.className = 'grp'; const td = document.createElement('td'); td.colSpan = 21; td.textContent = r.group; gtr.append(td); tb.append(gtr); }
+      const tr = document.createElement('tr');
+      tr.dataset.key = r.id;
+      const add = (txt, c = '', title) => { const td = document.createElement('td'); td.textContent = txt; if (c) td.className = c; if (title) td.title = title; tr.append(td); };
+      add(r.name, 'l', r.description);
+      add(r.group, 'l');
+      add(r.trades); add(fmtN(r.trades_per_month, 1)); add(fmtP(r.fill_rate)); add(fmtP(r.win_rate));
+      add(fmtR(r.avg_r), cl(r.avg_r)); add(fmtR(r.sum_r), cl(r.sum_r)); add(fmtN(r.profit_factor)); add(fmtN(r.p_value, 3)); add(fmtN(r.max_dd_r, 1));
+      add(fmtR(r.avg_r_first_half), cl(r.avg_r_first_half)); add(fmtR(r.avg_r_second_half), cl(r.avg_r_second_half));
+      add(r.verdict, 'l ' + vcl(r.verdict));
+      add(fmtR(r.delta_avg_r), cl(r.delta_avg_r)); add(fmtR(r.delta_h1), cl(r.delta_h1)); add(fmtR(r.delta_h2), cl(r.delta_h2));
+      add(r.better_both_halves || '', 'l ' + (r.better_both_halves === 'ja' ? 'pos' : ''));
+      add(r.orders_cancelled === '' ? '–' : r.orders_cancelled); add(r.cancelled_would_fill === '' ? '–' : r.cancelled_would_fill);
+      add(r.top_recommendation, 'l wrap');
+      tb.append(tr);
+    }
+  });
+  for (const th of document.querySelectorAll('.vt th')) th.addEventListener('click', () => {
+    const k = th.dataset.k; if (sortKey === k) sortDir = -sortDir; else { sortKey = k; sortDir = numCols.has(k) ? -1 : 1; }
+    for (const h of document.querySelectorAll('.vt th')) h.setAttribute('aria-sort', h === th ? (sortDir > 0 ? 'ascending' : 'descending') : 'none');
+    dash.draw('table');
+  });
+  for (const q of document.querySelectorAll('.bx .q')) q.addEventListener('input', () => { query = q.value.trim().toLowerCase(); dash.draw('table'); });
+
+  // ---------- Monate ----------
+  let picked = 'ftmo-basis';
+  dash.draw('pick', (sel) => {
+    const d = dash.data('varianten');
+    sel.replaceChildren(...(d.status === 'ok' ? d.data : []).map((r) => new Option(`${r.name} (${r.group})`, r.id)));
+    sel.value = picked;
+    sel.onchange = () => { picked = sel.value; dash.draw('monthly'); };
+  });
+  dash.draw('monthly', (el) => {
+    const d = dash.data('monate');
+    el.replaceChildren();
+    if (d.status !== 'ok') { el.textContent = '—'; return; }
+    const rows = d.data.filter((r) => r.id === picked).map((r) => ({ m: r.month, v: +r.sum_r, n: +r.trades }));
+    if (!rows.length) return;
+    const W = el.clientWidth || 800, H = 240, top = 10, bottom = 34;
+    const svg = d3.select(el).append('svg').attr('width', '100%').attr('viewBox', `0 0 ${W} ${H}`).style('font-family', 'var(--font-anthropic-sans)');
+    const ext = d3.extent([0, ...rows.map((r) => r.v)]);
+    const y = d3.scaleLinear(ext, [H - bottom, top]).nice();
+    const meas = svg.append('text').attr('font-size', 11).text(y.ticks(5).map((t) => t.toFixed(0) + 'R').reduce((a, b) => (a.length > b.length ? a : b)));
+    const left = meas.node().getComputedTextLength() + 10; meas.remove();
+    const x = d3.scaleBand(rows.map((r) => r.m), [left, W - 8]).padding(0.25);
+    svg.append('g').selectAll('line').data(y.ticks(5)).join('line').attr('x1', left).attr('x2', W - 8).attr('y1', (t) => y(t)).attr('y2', (t) => y(t)).attr('stroke', 'var(--cds-chart-grid)');
+    svg.append('g').selectAll('text').data(y.ticks(5)).join('text').attr('x', left - 6).attr('y', (t) => y(t) + 4).attr('text-anchor', 'end').attr('font-size', 11).attr('fill', 'var(--color-fg-muted)').text((t) => t.toFixed(0) + 'R');
+    svg.append('line').attr('x1', left).attr('x2', W - 8).attr('y1', y(0)).attr('y2', y(0)).attr('stroke', 'var(--cds-chart-axis)');
+    const every = Math.ceil(rows.length / Math.max(1, Math.floor((W - left) / 46)));
+    svg.append('g').selectAll('text').data(rows.filter((r, i) => i % every === 0)).join('text').attr('x', (r) => x(r.m) + x.bandwidth() / 2).attr('y', H - 12).attr('text-anchor', 'middle').attr('font-size', 11).attr('fill', 'var(--color-fg-muted)').text((r) => r.m.slice(2));
+    const tip = d3.select(el).append('div').attr('class', 'tip').style('display', 'none');
+    svg.append('g').selectAll('rect').data(rows).join('rect')
+      .attr('x', (r) => x(r.m)).attr('width', Math.min(32, x.bandwidth())).attr('y', (r) => Math.min(y(0), y(r.v))).attr('height', (r) => Math.max(1, Math.abs(y(r.v) - y(0)))).attr('rx', 2)
+      .attr('fill', (r) => (r.v >= 0 ? 'var(--color-ok)' : 'var(--color-bad)'))
+      .on('mousemove', (ev, r) => { const [mx, my] = d3.pointer(ev, el); tip.style('display', null).style('left', Math.min(mx + 12, el.clientWidth - 160) + 'px').style('top', (my + 12) + 'px'); tip.html(''); tip.append('div').attr('class', 't').text(r.m); tip.append('div').text(`${fmtR(r.v)} · ${r.n} Trades`); })
+      .on('mouseleave', () => tip.style('display', 'none'));
+  });
+
+  // ---------- Datenprüfung ----------
+  dash.draw('audit', (tb) => {
+    const d = dash.data('daten');
+    tb.replaceChildren();
+    if (d.status !== 'ok') return;
+    for (const r of d.data) {
+      const tr = document.createElement('tr');
+      for (const [v, c] of [[r.instrument, 'l'], [r.period_from, 'l'], [r.period_to, 'l'], [r.trading_days, ''], [`${(+r.window_completeness_pct).toFixed(1)} % (${r.window})`, ''], [`${r.missing_weekdays}${r.missing_weekday_list ? ' (' + r.missing_weekday_list + ')' : ''}`, ''], [r.days_with_gaps, ''], [r.largest_gaps, 'l wrap']]) {
+        const td = document.createElement('td'); td.textContent = v; if (c) td.className = c; tr.append(td);
+      }
+      tb.append(tr);
+    }
+  });
+</script>

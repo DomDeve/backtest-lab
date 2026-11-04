@@ -29,8 +29,20 @@ function offsetMinutes(ms, tz) {
 
 const pad = (n) => String(n).padStart(2, '0');
 
+const localCache = new Map(); // tz -> Map(minute -> Teile); Kerzenzeiten wiederholen sich ständig
 /** Lokale Zeit-Teile für einen UTC-Zeitstempel. */
 export function local(ms, tz = 'Europe/Berlin') {
+  let m = localCache.get(tz);
+  if (!m) { m = new Map(); localCache.set(tz, m); }
+  const key = Math.floor(ms / 60000);
+  let v = m.get(key);
+  if (v) return v;
+  if (m.size > 2000000) m.clear();
+  v = localCalc(key * 60000, tz);
+  m.set(key, v);
+  return v;
+}
+function localCalc(ms, tz) {
   const d = new Date(ms + offsetMinutes(ms, tz) * 60000);
   const date = `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}`;
   const hm = `${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`;

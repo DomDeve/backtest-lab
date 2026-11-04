@@ -34,7 +34,7 @@ export function analyzeRun({ result, bars, days, strategy, live = null, cleanRep
     stability: stability(trades),
     dims: { wd: dimensionTable(trades, 'wd'), hour: dimensionTable(trades, 'hour'), dir: dimensionTable(trades, 'dir') },
     patterns: analyzePatterns(trades),
-    exits: analyzeExits(trades, bars),
+    exits: analyzeExits(trades, bars, opts.exitVariants),
     risk: null, challenge: [], recommendations: [], filterTests: [],
   };
   const R = trades.map((t) => t.R);
@@ -66,9 +66,12 @@ export function analyzeRun({ result, bars, days, strategy, live = null, cleanRep
   const mid = dates[Math.floor(dates.length / 2)];
   const base = halves(trades, mid);
   const cands = (out.patterns.weaknesses || []).slice(0, opts.maxFilterTests ?? 6);
+  const seenSets = new Map(); // gleiche Trade-Menge = gleichbedeutende Schwäche (z. B. SL-Abstand und Lots)
   for (const w of cands) {
+    const setKey = trades.filter((t) => { const f = { dir: t.dir, wd: t.wd, hour: Number((t.signalHm || t.entryHm).slice(0, 2)), spreadEntry: t.spreadEntry, ...t.features }; const v = f[w.field]; return v !== undefined && v !== null && (w.kind === 'cat' ? String(v) === String(w.filter.values[0]) : v >= (w.filter.min ?? -Infinity) && v <= (w.filter.max ?? Infinity)); }).map((t) => t.id).join(',');
+    if (seenSets.has(setKey)) { const prev = seenSets.get(setKey); prev.title += ` (gleichbedeutend: ${w.fieldLabel} ${w.valueLabel})`; continue; }
     const filters = [...(result.params.filters || []), w.filter];
-    const res2 = runBacktest({ bars, days, strategy, params: { ...result.params, filters }, engine: E, range: result.period ? { from: result.period.from, to: result.period.to } : {} });
+    const res2 = opts.rerun ? opts.rerun(filters) : runBacktest({ bars, days, strategy, params: { ...result.params, filters }, engine: E, range: result.period ? { from: result.period.from, to: result.period.to } : {} });
     const h = halves(res2.trades, mid);
     const dA = mean(h.a) - mean(base.a), dB = mean(h.b) - mean(base.b);
     const sA = sum(h.a) - sum(base.a), sB = sum(h.b) - sum(base.b);
@@ -80,13 +83,15 @@ export function analyzeRun({ result, bars, days, strategy, live = null, cleanRep
     };
     out.filterTests.push(test);
     const status = robust && w.consistent ? 'empfohlen' : robust ? 'prüfen' : 'verworfen';
-    if (status === 'verworfen') continue;
-    add({
+    if (status === 'verworfen') { seenSets.set(setKey, { title: '' }); continue; }
+    const rec = {
       prio: status === 'empfohlen' ? 1 : 2, category: 'Filter', status,
       title: `Schwäche: ${w.fieldLabel} = ${w.valueLabel} (Ø ${fR(w.avgR)} bei ${w.n} Trades)`,
       text: `Vorschlag: ${describeFilter(w)}. Nachgerechnet mit Filter: ${test.newN} Trades, Ø ${fR(test.newAvgR)}, Summe ${fR(test.newSumR)} (vorher Ø ${fR(S.avgR)}, Summe ${fR(S.sumR)}). Verbesserung in 1. Hälfte ${fR(test.deltaAvgR_H1)}/Trade, 2. Hälfte ${fR(test.deltaAvgR_H2)}/Trade. Konsistent in ${test.foldsConsistent} Zeitabschnitten${w.q != null ? `, Mehrfachtest-korrigiert q = ${w.q}` : ''}.${status === 'prüfen' ? ' Nicht in allen Zeitabschnitten gleich – erst mit Forward-Test bestätigen.' : ''}`,
       evidence: test, action: { params: { filters: [w.filter] } },
-    });
+    };
+    seenSets.set(setKey, rec);
+    add(rec);
   }
 
   // ---------- 3. Stärken (nicht anfassen, verstehen) ----------

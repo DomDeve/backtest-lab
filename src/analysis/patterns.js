@@ -14,13 +14,13 @@ export const FIELD_LABELS = {
   ctx_prevRange: 'Vortagesrange (Pkt)', ctx_gapPts: 'Gap (Pkt)',
   rangePts: 'Range (Pkt)', rangeRel: 'Range / ATR', breakoutPts: 'Ausbruch über Range (Pkt)',
   signalMinutesAfterRange: 'Minuten nach Range-Ende', stopPts: 'SL-Abstand (Pkt)', stopRel: 'SL-Abstand / ATR',
-  sigma: 'σ (Noise-Profil)', moveFromOpenPct: 'Bewegung seit Open (%)', spreadEntry: 'Spread beim Einstieg',
+  sigma: 'σ (Noise-Profil)', slDist: 'SL-Abstand', tpDist: 'TP-Abstand', distToEntry: 'Abstand Kurs→Limit', rr: 'Chance/Risiko (RR)', atrPct: 'Tages-ATR14 (%)', h4Trend: 'H4-Trend', trend: 'M15-Trend', confluenceScore: 'Confluence-Score', adx: 'ADX', lvnSource: 'LVN-Quelle', phase: 'Handelsphase', entryLVN_depth: 'LVN-Tiefe', h1Trend: 'H1-Trend', slDistance: 'SL-Abstand', atr: 'ATR (Pips)', slPips: 'SL (Pips)', entryMode: 'Entry-Modus', lots: 'Lots', moveFromOpenPct: 'Bewegung seit Open (%)', spreadEntry: 'Spread beim Einstieg',
 };
 const label = (f) => FIELD_LABELS[f] || f;
 const fmtVal = (f, v) => (f === 'wd' ? WEEKDAYS_DE[v] : f === 'hour' ? `${v}:00–${v}:59` : String(v));
 
 // Felder, die keine Einstiegsfilter sein können (erst nach dem Einstieg bekannt) oder redundant sind
-const EXCLUDE = new Set(['ctx_month', 'ctx_gapPts', 'ctx_prevRange']);
+const EXCLUDE = new Set(['ctx_month', 'ctx_gapPts', 'ctx_prevRange', 'lots', 'size']);
 
 export function tradeFields(t) {
   return { dir: t.dir, wd: t.wd, hour: Number((t.signalHm || t.entryHm).slice(0, 2)), spreadEntry: t.spreadEntry, ...t.features };
@@ -32,7 +32,7 @@ export function buildSegments(trades, { minN } = {}) {
   const min = minN ?? Math.max(10, Math.round(N * 0.08));
   const rows = trades.map((t) => ({ t, f: tradeFields(t) }));
   const fields = new Set();
-  rows.forEach((r) => Object.keys(r.f).forEach((k) => !EXCLUDE.has(k) && fields.add(k)));
+  rows.forEach((r) => Object.keys(r.f).forEach((k) => !EXCLUDE.has(k) && !k.startsWith('post_') && fields.add(k)));
   const segs = [];
   for (const field of fields) {
     const vals = rows.map((r) => r.f[field]).filter((v) => v !== null && v !== undefined);

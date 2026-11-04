@@ -4,7 +4,19 @@ Backtests für die n8n-Trading-Bots, **mit derselben Logik wie live**, mit Daten
 echte Live-Trades und einer Analyse, die Stärken und Schwächen zeigt und Verbesserungen nur empfiehlt, wenn sie
 Overfitting-Prüfungen bestehen.
 
-## Schnellstart
+## Live-Code-Backtests (alle Bots aus n8n)
+
+```bash
+node tools/audit-data.js data/raw            # Daten prüfen
+node bin/live.js list                        # Varianten
+node bin/live.js run --variants all          # alle rechnen (~30–60 Min.)
+node bin/live.js compare                     # out/live/vergleich.html
+```
+
+Die Strategien laufen als **unveränderter Code der n8n-Code-Nodes** (`strategies-live/`), inklusive Order-Prüfung,
+Lösch-Regel, Tageslimit und FTMO-Regeln. Details: `CLAUDE.md`.
+
+## Schnellstart (portierte Engine)
 
 ```bash
 npm install

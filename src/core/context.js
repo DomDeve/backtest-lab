@@ -1,7 +1,8 @@
 // Marktumfeld je Tag – nur aus Daten, die zu Tagesbeginn bekannt sind (kein Blick in die Zukunft).
 // Diese Merkmale hängen an jedem Trade und sind die Basis für die Muster-Analyse (Stärken/Schwächen nach Regime).
 
-const r = (x, d = 3) => (Number.isFinite(x) ? Math.round(x * 10 ** d) / 10 ** d : null);
+const r = (x, d = 3) => (Number.isFinite(x) ? Number(x.toPrecision(6)) && Math.round(x * 10 ** d) / 10 ** d : null);
+const rp = (x) => (Number.isFinite(x) ? Number(x.toPrecision(5)) : null); // preisabhängig (Index-Punkte oder FX)
 
 export function buildDayContext(bars, days) {
   const daily = days.map((d) => {
@@ -18,10 +19,10 @@ export function buildDayContext(bars, days) {
     const c5 = daily[k - 6];
     out[d.date] = {
       ctx_month: d.date.slice(0, 7),
-      ctx_atr14: r(atr, 1),
-      ctx_prevRange: p ? r(p.range, 1) : null,
+      ctx_atr14: rp(atr),
+      ctx_prevRange: p ? rp(p.range) : null,
       ctx_prevRangeRel: p && atr ? r(p.range / atr) : null,
-      ctx_gapPts: p ? r(d.open - p.close, 1) : null,
+      ctx_gapPts: p ? rp(d.open - p.close) : null,
       ctx_gapRel: p && atr ? r((d.open - p.close) / atr) : null,
       ctx_prevDay: p ? (p.close >= p.open ? 'up' : 'down') : null,
       ctx_trend5Rel: p && c5 && atr ? r((p.close - c5.close) / atr) : null,
