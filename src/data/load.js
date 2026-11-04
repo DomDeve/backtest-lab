@@ -3,7 +3,7 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
-import AdmZip from 'adm-zip';
+import { createRequire } from 'node:module';
 import { utcFor } from '../core/time.js';
 
 const num = (v) => (v === null || v === undefined || v === '' ? NaN : Number(String(v).replace(',', '.')));
@@ -139,6 +139,7 @@ export function loadBars(input, opt = {}) {
   const sources = [];
   for (const f of files) {
     if (/\.zip$/i.test(f)) {
+      const AdmZip = createRequire(import.meta.url)('adm-zip'); // erst bei ZIP-Dateien laden
       const zip = new AdmZip(f);
       for (const e of zip.getEntries()) {
         if (e.isDirectory || !/\.(json|csv|txt|ndjson)$/i.test(e.entryName)) continue;

@@ -71,3 +71,59 @@ test('Katalog: alle Varianten kompilieren, Patches greifen', () => {
   const base = cat.find((v) => v.id === 'ftmo-basis');
   assert.doesNotMatch(base.code, /__V/); // Basis = unveränderter Originaltext
 });
+
+// ---- EURUSD Sweep -> BOS -> FVG -> Fib-Pullback (Test-Variante eu-sbf)
+function sbfItems(sweepClose) {
+  const P = (pips) => 1.1 + pips * 0.0001;
+  const cap = (t, o, h, l, c) => ({ snapshotTimeUTC: new Date(t).toISOString().slice(0, 19),
+    openPrice: { bid: o - 0.00005, ask: o + 0.00005 }, highPrice: { bid: h - 0.00005, ask: h + 0.00005 },
+    lowPrice: { bid: l - 0.00005, ask: l + 0.00005 }, closePrice: { bid: c - 0.00005, ask: c + 0.00005 } });
+  // [low, high, close] in Pips über 1.1000; Index 44 Swing-Tief, 48 Swing-Hoch, 52 Sweep, 55 BOS, 56 FVG, 57 Impuls-Hoch
+  const hlc = [];
+  for (let i = 0; i < 44; i++) { const l = 3 + (43 - i) * 0.3; hlc.push([l, l + 3, l + 1.5]); }
+  hlc.push([0, 3, 2], [1, 5, 4], [3, 7, 6], [5, 9, 8], [7, 10, 8], [6, 9, 6.5], [4, 7, 4.5], [2, 5, 2.5],
+    [-3, 3, sweepClose], [1, 6, 5.5], [5, 9, 8.5], [8.5, 14, 13], [12, 18, 17], [16, 20, 18], [12, 18, 13], [8, 13, 9], [5, 9.5, 6], [4, 4.5, 4]);
+  const t0 = Date.parse('2026-03-03T08:00:00Z');
+  let prev = hlc[0][2];
+  const m5 = hlc.map(([l, h, c], i) => { const o = prev; prev = c; return cap(t0 + i * 300000, P(o), P(Math.max(h, o)), P(Math.min(l, o)), P(c)); });
+  const trend = (n, step, ms) => Array.from({ length: n }, (_, i) => { const b = 1.08 + i * step; return cap(t0 - (n - i) * ms, b, b + 0.0004, b - 0.0002, b + 0.0003); });
+  return { items: [{ json: { accounts: [{ balance: { balance: 18000 } }] } }, { json: { prices: trend(70, 0.0003, 900000) } }, { json: { prices: m5 } }, { json: { prices: trend(60, 0.0005, 3600000) } }],
+    now: t0 + (hlc.length - 1) * 300000 + 10000 };
+}
+
+test('EURUSD Sweep→BOS→FVG: Einstieg im Fib-Pullback 0,618–0,75, ohne Sweep kein Signal', () => {
+  const v = buildCatalog().find((x) => x.id === 'eu-sbf');
+  const run = compileNode(v.code);
+  const go = (sweepClose) => {
+    const { items, now } = sbfItems(sweepClose);
+    const clock = makeClock(); clock.now = now;
+    return run({ items, state: {}, DateCls: makeDate(clock), IntlObj: makeIntl() })[0].json;
+  };
+  const ok = go(1); // Sweep-Kerze schließt wieder über dem Swing-Tief
+  assert.equal(ok.signal, 'BUY', ok.reason);
+  assert.ok(ok.sbfFib >= 0.618 && ok.sbfFib <= 0.75, `Fib ${ok.sbfFib}`);
+  assert.equal(ok.sbfBosMin, 15); // Sweep 52 -> BOS 55
+  assert.ok(ok.stopLevel < 1.1 - 0.0003, 'SL hinter dem Sweep-Tief');
+  assert.ok(Math.abs(ok.tpDistance / ok.slDistance - 1.5) < 0.02, 'TP = 1,5 × SL (Rundung 5 Stellen)');
+  const no = go(-1); // schließt unter dem Tief -> Ausbruch, kein Sweep
+  assert.equal(no.signal, 'NONE');
+  assert.match(no.reason, /keine Sweep/);
+});
+
+test('EURUSD Muster-Filter: Mi/Fr und ADX 30–35 als Code-Patch, Basis unverändert', () => {
+  const cat = buildCatalog();
+  const v = cat.find((x) => x.id === 'eu-c4-mifr-adx');
+  assert.equal(v.base, 'eu-c4');
+  assert.match(v.code, /utcDay === 3 \|\| utcDay === 5\) return none\("Mi\/Fr-Filter"\)/);
+  assert.match(v.code, /adx >= 30 && adx < 35/);
+  assert.doesNotMatch(cat.find((x) => x.id === 'eu-c4').code, /Mi\/Fr-Filter/);
+  const only = cat.find((x) => x.id === 'eu-c3-mifr');
+  assert.match(only.code, /Mi\/Fr-Filter/);
+  assert.doesNotMatch(only.code, /ADX-Filter 30–35/);
+  // Filter greift vor jeder Signal-Logik: Mittwoch -> NONE mit Grund
+  const { items, now } = sbfItems(1);
+  const clock = makeClock(); clock.now = now + 86400000; // 04.03.2026 = Mittwoch
+  const out = compileNode(cat.find((x) => x.id === 'eu-sbf-mifr-adx').code)({ items, state: {}, DateCls: makeDate(clock), IntlObj: makeIntl() })[0].json;
+  assert.equal(out.signal, 'NONE');
+  assert.equal(out.reason, 'Mi/Fr-Filter');
+});

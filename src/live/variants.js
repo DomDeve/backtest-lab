@@ -50,6 +50,107 @@ function nasSetupPatch(code, cfg) {
     + parts[1] + "if (__rangeOk(range) && __brkOk('SELL', sl1, sl2, range) && __freshOk('SELL', sl1) && __cleanOk('SELL', relevantHigh, sl1)) {" + parts[2];
 }
 
+// EURUSD-Test (04.11.2026): Sweep -> BOS -> FVG -> Einstieg im Pullback Fib 0,618–0,75 (alles M5, nur geschlossene Kerzen).
+//   1. Sweep: Kerze sticht durch das letzte bestätigte M5-Swing-Tief (BUY) bzw. -Hoch (SELL), das bis dahin unberührt war,
+//      und schließt wieder dahinter.
+//   2. BOS: innerhalb maxBosBars schließt eine Kerze jenseits des letzten Swing-Hochs/-Tiefs vor dem Sweep.
+//   3. FVG in Bruchrichtung (Mindestgröße MIN_FVG_ATR × ATR), entstanden mit der BOS-Kerze oder bis fvgBars danach.
+//   4. Fib: 1,0 = Extrem zwischen Sweep und BOS, 0 = Impuls-Extrem bis jetzt. Einstieg (Market), wenn der aktuelle Kurs
+//      zwischen 0,618 und 0,75 liegt, spätestens entryBars nach dem BOS. Schluss jenseits von 1,0 = Setup tot.
+//   SL hinter 1,0 + slBufferAtr × ATR (min 5 / max 20 Pips wie im Template), TP = TP_RR × SL oder Fib 0 (tpMode 'FIB0').
+//   Alle übrigen Template-Regeln (Handelszeit, Spread, News, ADX ≥ 20, ATR ≥ 2 Pips, Cooldown, Direction-Lock) bleiben.
+const SBF_DEFAULT = { useBias: true, swingLb: 3, maxSetupBars: 48, maxBosBars: 24, fvgBars: 3, entryBars: 36, fibFrom: 0.618, fibTo: 0.75, slBufferAtr: 0.3, tpMode: 'RR' };
+const SBF_BLOCK = `
+  if (ENTRY_MODE === "SWEEP_BOS_FVG") {
+    const LB = __SBF.swingLb;
+    const sw = findSwings(c5.slice(0, closed5 + 1), LB);   // nur abgeschlossene Kerzen
+    const dirs = __SBF.useBias ? [bias] : ["BUY", "SELL"];
+    let best = null;
+    for (const d of dirs) {
+      const up = d === "BUY";
+      const liq = up ? sw.lows : sw.highs;     // Liquidität, die gesweept wird
+      const str = up ? sw.highs : sw.lows;     // Struktur, die gebrochen wird
+      for (let k = closed5; k >= Math.max(2, closed5 - __SBF.maxSetupBars); k--) {
+        // 1. Sweep
+        const prior = liq.filter(s => s.index + LB < k);
+        if (!prior.length) continue;
+        const lv = prior[prior.length - 1];
+        const ck = c5[k];
+        if (!(up ? (ck.low < lv.price && ck.close > lv.price) : (ck.high > lv.price && ck.close < lv.price))) continue;
+        let fresh = true;
+        for (let j = lv.index + 1; j < k; j++) if (up ? c5[j].low < lv.price : c5[j].high > lv.price) { fresh = false; break; }
+        if (!fresh) continue;
+        // 2. BOS
+        const refs = str.filter(s => s.index < k);
+        if (!refs.length) continue;
+        const ref = refs[refs.length - 1];
+        let b = -1;
+        for (let j = k + 1; j <= Math.min(closed5, k + __SBF.maxBosBars); j++) {
+          if (up ? c5[j].close > ref.price : c5[j].close < ref.price) { b = j; break; }
+        }
+        if (b < 0) continue;
+        // 3. FVG
+        let fvg = null;
+        for (let j = Math.max(b, 2); j <= Math.min(closed5, b + __SBF.fvgBars); j++) {
+          if (up && c5[j].low > c5[j-2].high && c5[j].low - c5[j-2].high >= atr * MIN_FVG_ATR) { fvg = j; break; }
+          if (!up && c5[j].high < c5[j-2].low && c5[j-2].low - c5[j].high >= atr * MIN_FVG_ATR) { fvg = j; break; }
+        }
+        if (fvg === null) continue;
+        if (closed5 - b > __SBF.entryBars) break;
+        // 4. Fib-Anker
+        let ext = up ? Infinity : -Infinity;
+        for (let j = k; j <= b; j++) ext = up ? Math.min(ext, c5[j].low) : Math.max(ext, c5[j].high);
+        let imp = up ? -Infinity : Infinity;
+        for (let j = k; j <= closed5; j++) imp = up ? Math.max(imp, c5[j].high) : Math.min(imp, c5[j].low);
+        let dead = false;
+        for (let j = b; j <= closed5; j++) if (up ? c5[j].close < ext : c5[j].close > ext) { dead = true; break; }
+        if (!dead && (!best || k > best.k)) best = { d, k, b, ext, imp };
+        break; // jüngster Sweep je Richtung
+      }
+    }
+    if (!best) return none("keine Sweep→BOS→FVG-Sequenz");
+    const up = best.d === "BUY";
+    const R = Math.abs(best.imp - best.ext);
+    const zA = up ? best.imp - __SBF.fibFrom * R : best.imp + __SBF.fibFrom * R;
+    const zB = up ? best.imp - __SBF.fibTo * R : best.imp + __SBF.fibTo * R;
+    const inZone = up ? (price <= zA && price >= zB) : (price >= zA && price <= zB);
+    if (!inZone) return none(\`Sequenz \${best.d} aktiv, warte auf Pullback \${Math.min(zA, zB).toFixed(5)}–\${Math.max(zA, zB).toFixed(5)}\`);
+    const slLevel = up ? best.ext - atr * __SBF.slBufferAtr : best.ext + atr * __SBF.slBufferAtr;
+    slDistance = clampSL(Math.abs(price - slLevel));
+    if (slDistance > SL_MAX_PIPS * PIP) return none(\`SL zu weit (\${(slDistance / PIP).toFixed(1)} Pips)\`);
+    signal = best.d; isBuy = up; entry = price;
+    if (__SBF.tpMode === "FIB0") __tpDist = Math.abs(best.imp - price);
+    const fibAt = Math.abs(best.imp - price) / R;
+    __sbfFeat = { sbfFib: +fibAt.toFixed(3), sbfBosMin: (best.b - best.k) * 5, sbfAgeMin: (closed5 - best.b) * 5, sbfRangePips: +(R / PIP).toFixed(1) };
+    fingerprint = \`\${best.d}_SBF_\${c5[best.k].time}\`;
+    entryReason = \`Sweep \${c5[best.k].time.slice(11, 16)} → BOS \${c5[best.b].time.slice(11, 16)} → FVG → Pullback Fib \${fibAt.toFixed(3)}\`;
+  }
+`;
+function euSweepPatch(code, cfg) {
+  const c = { ...SBF_DEFAULT, ...cfg };
+  code = setConst(code, 'BOT_ID', c.botId);
+  code = setConst(code, 'ENTRY_MODE', 'SWEEP_BOS_FVG');
+  code = setConst(code, 'ORDER_TYPE', 'MARKET');
+  code = setConst(code, 'TP_RR', c.tpR ?? 1.5);
+  code = code.replace(/try\s*\{/, (m) => `${m}\n  const __SBF = ${JSON.stringify(c)};\n  let __tpDist = null;\n  let __sbfFeat = null;\n`);
+  code = replaceExact(code, '["LEGACY", "EMA_PULLBACK", "BREAK_RETEST"].includes(ENTRY_MODE)', '["LEGACY", "EMA_PULLBACK", "BREAK_RETEST", "SWEEP_BOS_FVG"].includes(ENTRY_MODE)');
+  code = replaceExact(code, 'if (bias === "NONE") return none("H1- und M15-Trend uneinig"', 'if (bias === "NONE" && __SBF.useBias) return none("H1- und M15-Trend uneinig"');
+  code = replaceExact(code, 'const isBuy = bias === "BUY";', 'let isBuy = bias === "BUY";');
+  code = replaceExact(code, '  if (signal === "NONE") return none("kein Signal");', SBF_BLOCK + '\n  if (signal === "NONE") return none("kein Signal");');
+  code = replaceExact(code, 'const tpDistance = slDistance * TP_RR;', 'const tpDistance = __tpDist > 0 ? __tpDist : slDistance * TP_RR;');
+  return replaceExact(code, '    reason: "Signal",', '    reason: "Signal",\n    ...(__sbfFeat || {}),');
+}
+
+// EURUSD-Muster (04.11.2026): Mi + Fr in allen 7 EURUSD-Varianten schwächer (beide Hälften, alle Drittel), ADX 30–35 nur
+// zusammen damit hilfreich. Als Code-Patch (wie live umsetzbar): gesperrte Läufe setzen weder Cooldown noch Fingerprint.
+function euDayAdxPatch(code, { noMiFr = false, noAdx3035 = false } = {}) {
+  if (noMiFr) code = replaceExact(code, 'if (utcDay === 0 || utcDay === 6) return none("Wochenende");',
+    'if (utcDay === 0 || utcDay === 6) return none("Wochenende");\n  if (utcDay === 3 || utcDay === 5) return none("Mi/Fr-Filter");');
+  if (noAdx3035) code = replaceExact(code, '  if (adx < MIN_ADX) return none(',
+    '  if (adx >= 30 && adx < 35) return none(`ADX-Filter 30–35: ${adx.toFixed(1)}`);\n  if (adx < MIN_ADX) return none(');
+  return code;
+}
+
 // ---------------------------------------------------------------- Familien-Defaults
 const NAS_FEAT = ['rr', 'h4Trend', 'trend', 'atrPct'];
 const DE_FEAT = ['confluenceScore', 'adx', 'rr', 'lvnSource', 'phase', 'entryLVN.depth', 'h1Trend'];
@@ -121,6 +222,27 @@ export function buildCatalog() {
   V.push(eu('eu-c4', 'EURUSD C4 Break&Retest Market TP1.5', 'EURUSD_C4.js', 'Break & Retest, Market, TP 1,5R'));
   V.push(eu('eu-c5', 'EURUSD C5 Break&Retest Limit TP1.5', 'EURUSD_C5.js', 'Break & Retest, Limit in FVG-Mitte, TP 1,5R'));
   V.push(eu('eu-c6', 'EURUSD C6 Break&Retest Market TP1', 'EURUSD_C6.js', 'Break & Retest, Market, TP 1R'));
+  // ---- EURUSD Test: Sweep -> BOS -> FVG -> Pullback Fib 0,618–0,75 (Basis: C4, gleiches Template)
+  const sbf = (id, name, desc, cfg) => ({ ...eu(id, name, 'EURUSD_C4.js', desc), group: 'EURUSD Sweep→BOS→FVG→Fib (Test)', base: 'eu-c4',
+    code: euSweepPatch(read('capital/EURUSD_C4.js'), cfg), featureKeys: [...EU_FEAT, 'sbfFib', 'sbfBosMin', 'sbfAgeMin', 'sbfRangePips'] });
+  V.push(sbf('eu-sbf', 'EURUSD Sweep→BOS→FVG Fib 0,618–0,75 TP1.5', 'H1/M15-Trend wie Template, Market im Fib-Pullback, TP 1,5R', { botId: 'EUSBF' }));
+  V.push(sbf('eu-sbf-nobias', 'EURUSD Sweep→BOS→FVG ohne Trendfilter TP1.5', 'wie eu-sbf, aber Richtung nur aus der Sequenz (kein H1/M15-Trend)', { botId: 'EUSBFNB', useBias: false }));
+  V.push(sbf('eu-sbf-fib0', 'EURUSD Sweep→BOS→FVG TP am Impuls-Extrem', 'wie eu-sbf, TP = Fib 0 (Hoch/Tief des Impulses)', { botId: 'EUSBFF0', tpMode: 'FIB0' }));
+  V.push(sbf('eu-sbf-tp075', 'EURUSD Sweep→BOS→FVG TP0.75', 'wie eu-sbf, TP 0,75R (aus Ausstiegs-Analyse von eu-sbf)', { botId: 'EUSBF075', tpR: 0.75 }));
+  // ---- EURUSD Muster-Filter: kein Handel Mi + Fr, optional ADX 30–35 aus (Basis = jeweilige Variante)
+  const gMF = 'EURUSD Muster-Filter Mi/Fr + ADX (Test)';
+  const mf = (id, baseId, name, cfg) => {
+    const b = V.find((x) => x.id === baseId);
+    const desc = `${b.name}: ${cfg.noMiFr ? 'kein Handel Mi + Fr (UTC)' : ''}${cfg.noAdx3035 ? ', kein Einstieg bei ADX(M15) 30–35' : ''}`;
+    return { ...b, id, name, group: gMF, base: baseId, desc, code: euDayAdxPatch(b.code, cfg) };
+  };
+  V.push(mf('eu-c3-mifr', 'eu-c3', 'C3 ohne Mi+Fr', { noMiFr: true }));
+  V.push(mf('eu-c3-mifr-adx', 'eu-c3', 'C3 ohne Mi+Fr, ohne ADX 30–35', { noMiFr: true, noAdx3035: true }));
+  V.push(mf('eu-c4-mifr-adx', 'eu-c4', 'C4 ohne Mi+Fr, ohne ADX 30–35', { noMiFr: true, noAdx3035: true }));
+  V.push(mf('eu-c5-mifr-adx', 'eu-c5', 'C5 ohne Mi+Fr, ohne ADX 30–35', { noMiFr: true, noAdx3035: true }));
+  V.push(mf('eu-c6-mifr-adx', 'eu-c6', 'C6 ohne Mi+Fr, ohne ADX 30–35', { noMiFr: true, noAdx3035: true }));
+  V.push(mf('eu-sbf-mifr-adx', 'eu-sbf', 'Sweep→BOS→FVG TP1.5 ohne Mi+Fr, ohne ADX 30–35', { noMiFr: true, noAdx3035: true }));
+  V.push(mf('eu-sbf-tp075-mifr', 'eu-sbf-tp075', 'Sweep→BOS→FVG TP0.75 ohne Mi+Fr', { noMiFr: true }));
   return V;
 }
 

@@ -150,3 +150,10 @@ Gesamtvergleich: `out/live/vergleich.html` (+ CSV-Exporte), Einzelreports `out/l
 - Backtest-Auftrag F618ATR (V1–V6): keine Variante schlägt die FTMO-Basis in beiden Zeithälften; V2, V4, V6 klar schlechter.
 - Muster-Analyse: SL_MAX 80 statt 200 (FTMO) → Ø +0,38R, Plateau 60–120. In-Sample gefunden → erst Forward-Test.
 - DE40 LVN (6 Varianten) und EURUSD C1–C6 durchgehend negativ.
+- EURUSD Sweep→BOS→FVG→Fib 0,618–0,75 (`eu-sbf*`, 04.11.2026, Basis-Template C4): TP 1,5R Ø −0,04R (117 Trades), ohne Trendfilter Ø −0,10R,
+  TP am Impuls-Extrem Ø −0,09R; **TP 0,75R Ø +0,08R, beide Hälften +0,07/+0,09R, p = 0,31** – bester EURUSD-Ansatz, aber nicht belegt.
+- EURUSD-Muster über C1–C6 + eu-sbf (04.11.2026, echte Re-Runs mit Filter): **kein Handel Mi + Fr** verbessert alle 7 Varianten in beiden
+  Hälften und allen Dritteln um +0,07 bis +0,11R (C3 → +0,02R, C4 −0,01R). Zusätzlich ADX 30–35 raus: C4/C5/C6 ≈ +0,03 bis +0,04R, eu-sbf +0,24R
+  (54 Trades). ADX 30–35 allein nicht robust. Nichts davon signifikant; Varianten teilen viele Signale -> nicht unabhängig.
+  Als Code-Patch im Katalog (Gruppe `Muster-Filter`, `euDayAdxPatch`): C4 Ø +0,08R (333 Tr., H 0/+0,15), C6 +0,05R, C5 ±0, C3 ±0,
+  eu-sbf +0,16R (66 Tr.), eu-sbf-tp075 +0,08R. Alle besser als ihre Basis in beiden Hälften, keine signifikant (p ≥ 0,22).
