@@ -127,3 +127,25 @@ test('EURUSD Muster-Filter: Mi/Fr und ADX 30–35 als Code-Patch, Basis unverän
   assert.equal(out.signal, 'NONE');
   assert.equal(out.reason, 'Mi/Fr-Filter');
 });
+
+test('Muster-Filter DE40/NAS als Code-Patch: Fundstellen greifen, Basis unverändert', () => {
+  const cat = buildCatalog();
+  const de = cat.find((x) => x.id === 'de40-combo-mf');
+  assert.match(de.code, /ADX_MIN: 30,/);
+  assert.match(de.code, /FILTER_MONTAG/);
+  assert.match(de.code, /!\(z\.depth >= 0\.2 && z\.depth <= 0\.35\)/);
+  assert.doesNotMatch(cat.find((x) => x.id === 'de40-combo').code, /FILTER_MONTAG/);
+  const a30 = cat.find((x) => x.id === 'de40-basis-adx30');
+  assert.match(a30.code, /ADX_MIN: 30,/);
+  assert.doesNotMatch(a30.code, /FILTER_MONTAG/);
+  const n = cat.find((x) => x.id === 'nas-f618-l2r1ext-h15');
+  assert.match(n.code, /US-Eröffnung/);
+  assert.match(n.code, /"type":"fractal","L":2,"R":1/);
+  assert.doesNotMatch(cat.find((x) => x.id === 'nas-f618atr').code, /US-Eröffnung|__SW/);
+  // Sandbox: um 15:10 Berlin (Sommerzeit, 13:10 UTC) greift die Sperre vor jeder Signal-Logik
+  const clock = makeClock(); clock.now = Date.parse('2026-06-16T13:10:10Z');
+  const run = compileNode(cat.find((x) => x.id === 'nas-f618-h15').code);
+  const m15 = Array.from({ length: 220 }, (_, i) => ({ snapshotTimeUTC: '2026-06-14T00:00:00', openPrice: { bid: 100, ask: 101 }, highPrice: { bid: 102, ask: 103 }, lowPrice: { bid: 99, ask: 100 }, closePrice: { bid: 100, ask: 101 } }));
+  const out = run({ items: [{ json: { prices: m15 } }, { json: { prices: m15.slice(0, 60) } }, { json: {} }], state: {}, DateCls: makeDate(clock), IntlObj: makeIntl() })[0].json;
+  assert.match(out.error, /keine Signale 15:00/);
+});

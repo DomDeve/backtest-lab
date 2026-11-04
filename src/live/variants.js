@@ -151,6 +151,96 @@ function euDayAdxPatch(code, { noMiFr = false, noAdx3035 = false } = {}) {
   return code;
 }
 
+// ---------------------------------------------------------------- Swing-Methoden (Test 04.11.2026)
+// Helfer für die NAS-M15-Fib-Bots. Alle arbeiten auf Hoch/Tief (Dochte), nur bestätigte Swings.
+//   fractal L/R : Hoch höher als L Kerzen links und R Kerzen rechts (Original = L = R = Lookback)
+//   zigzag k    : Swing bestätigt, sobald der Kurs um k × ATR14(M15) vom Extrem zurückläuft (keine Mini-Swings)
+const SWING_HELPERS = `
+  function __atrSeries(h, l, c, n = 14) {
+    const tr = h.map((x, i) => i === 0 ? x - l[i] : Math.max(x - l[i], Math.abs(x - c[i-1]), Math.abs(l[i] - c[i-1])));
+    const out = []; let s = 0;
+    for (let i = 0; i < tr.length; i++) { s += tr[i]; if (i >= n) s -= tr[i-n]; out.push(s / Math.min(i + 1, n)); }
+    return out;
+  }
+  function __fractal(arr, L, R, isHigh) {
+    const o = [];
+    for (let i = L; i < arr.length - R; i++) {
+      let ok = true;
+      for (let j = 1; j <= Math.max(L, R) && ok; j++) {
+        if (j <= L && (isHigh ? arr[i-j] >= arr[i] : arr[i-j] <= arr[i])) ok = false;
+        if (j <= R && (isHigh ? arr[i+j] >= arr[i] : arr[i+j] <= arr[i])) ok = false;
+      }
+      if (ok) o.push({ index: i, price: arr[i] });
+    }
+    return o;
+  }
+  function __zigzag(h, l, c, k) {
+    const atr = __atrSeries(h, l, c);
+    const H = [], L = []; let dir = 0, hi = 0, lo = 0;
+    for (let i = 1; i < h.length; i++) {
+      if (dir >= 0 && h[i] > h[hi]) hi = i;
+      if (dir <= 0 && l[i] < l[lo]) lo = i;
+      const th = k * atr[i];
+      if (dir >= 0 && i > hi && h[hi] - l[i] >= th) { H.push({ index: hi, price: h[hi] }); dir = -1; lo = i; continue; }
+      if (dir <= 0 && i > lo && h[i] - l[lo] >= th) { L.push({ index: lo, price: l[lo] }); dir = 1; hi = i; continue; }
+    }
+    return { H, L };
+  }
+  function __swings(h, l, c, m) {
+    if (m.type === 'zigzag') return __zigzag(h, l, c, m.k);
+    return { H: __fractal(h, m.L, m.R, true), L: __fractal(l, m.L, m.R, false) };
+  }
+`;
+
+// NAS: Swing-Methode tauschen (+ optional BOS per Schlusskurs, echtes Extrem der Bewegung als Fib-Anker)
+export function nasSwingPatch(code, cfg, currentLb) {
+  const c = { method: null, bosClose: false, trueExt: false, ...cfg };
+  code = code.replace(/try\s*\{/, (m) => `${m}\n  const __SW = ${JSON.stringify(c)};\n${SWING_HELPERS}
+  function __bosOk(dir, ref) { if (!__SW.bosClose) return true;
+    for (let k = ref.index + 1; k < closes.length; k++) if (dir === 'BUY' ? closes[k] > ref.price : closes[k] < ref.price) return true;
+    return false; }
+  function __ext(dir, a, b) { let best = null;
+    for (let k = a + 1; k < b; k++) { const p = dir === 'BUY' ? lows[k] : highs[k];
+      if (!best || (dir === 'BUY' ? p < best.price : p > best.price)) best = { index: k, price: p }; }
+    return best; }
+`);
+  if (c.method) {
+    code = replaceExact(code, `const swH = findSwingHighs(highs, ${currentLb});\n  const swL = findSwingLows(lows, ${currentLb});`,
+      'const __sw = __swings(highs, lows, closes, __SW.method);\n  const swH = __sw.H;\n  const swL = __sw.L;');
+  }
+  code = replaceExact(code, 'if (sh1.price > sh2.price) {', "if (sh1.price > sh2.price && __bosOk('BUY', sh2)) {");
+  code = replaceExact(code, 'if (sl1.price < sl2.price) {', "if (sl1.price < sl2.price && __bosOk('SELL', sl2)) {");
+  if (c.trueExt) {
+    code = replaceExact(code, 'const range = sh1.price - relevantLow.price;',
+      "{ const e = __ext('BUY', sh2.index, sh1.index); if (e && e.price < relevantLow.price) relevantLow = e; }\n        const range = sh1.price - relevantLow.price;");
+    code = replaceExact(code, 'const range = relevantHigh.price - sl1.price;',
+      "{ const e = __ext('SELL', sl2.index, sl1.index); if (e && e.price > relevantHigh.price) relevantHigh = e; }\n        const range = relevantHigh.price - sl1.price;");
+  }
+  return code;
+}
+
+// Muster-Filter als Code-Patch (Test 04.11.2026, Übersicht out/live/muster-swing.html)
+// NAS: keine Signale in der Berliner Stunde 15 (US-Eröffnung), optional kein Montag.
+export function nasFilterPatch(code, { noHour15 = false, noMonday = false } = {}) {
+  const at = 'if (utcDay === 0 || utcDay === 6) return [{json:{signal:"NONE",error:"Wochenende"}}];';
+  let add = '';
+  if (noHour15) add += `\n  { const __bh = Number(new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/Berlin', hour: '2-digit', hourCycle: 'h23' }).format(now));
+    if (__bh === 15) return [{json:{signal:"NONE",error:"Filter: keine Signale 15:00–15:59 Berlin (US-Eröffnung)"}}]; }`;
+  if (noMonday) add += '\n  if (utcDay === 1) return [{json:{signal:"NONE",error:"Filter: kein Handel am Montag"}}];';
+  return replaceExact(code, at, at + add);
+}
+// DE40 LVN: ADX-Mindestwert, kein Montag (Berlin), LVN mit Tal-Tiefe im Bereich lvnExcl auslassen.
+export function deFilterPatch(code, { adxMin = null, noMonday = false, lvnExcl = null } = {}) {
+  if (adxMin != null) {
+    if (!/ADX_MIN:\s*\d+(\.\d+)?,/.test(code)) throw new Error('CONFIG.ADX_MIN nicht gefunden');
+    code = code.replace(/ADX_MIN:\s*\d+(\.\d+)?,/, `ADX_MIN: ${adxMin},`);
+  }
+  if (noMonday) code = replaceExact(code, '  if (h1Trend === "NEUTRAL") {', '  if (nowBerlin.weekday === 1) return stopWithReason("FILTER_MONTAG", {});\n  if (h1Trend === "NEUTRAL") {');
+  if (lvnExcl) code = replaceExact(code, 'const deep = inWindow.filter(z => z.depth < CONFIG.LVN_QUALITY_MAX)',
+    `const deep = inWindow.filter(z => z.depth < CONFIG.LVN_QUALITY_MAX && !(z.depth >= ${lvnExcl[0]} && z.depth <= ${lvnExcl[1]}))`);
+  return code;
+}
+
 // ---------------------------------------------------------------- Familien-Defaults
 const NAS_FEAT = ['rr', 'h4Trend', 'trend', 'atrPct'];
 const DE_FEAT = ['confluenceScore', 'adx', 'rr', 'lvnSource', 'phase', 'entryLVN.depth', 'h1Trend'];
@@ -243,6 +333,46 @@ export function buildCatalog() {
   V.push(mf('eu-c6-mifr-adx', 'eu-c6', 'C6 ohne Mi+Fr, ohne ADX 30–35', { noMiFr: true, noAdx3035: true }));
   V.push(mf('eu-sbf-mifr-adx', 'eu-sbf', 'Sweep→BOS→FVG TP1.5 ohne Mi+Fr, ohne ADX 30–35', { noMiFr: true, noAdx3035: true }));
   V.push(mf('eu-sbf-tp075-mifr', 'eu-sbf-tp075', 'Sweep→BOS→FVG TP0.75 ohne Mi+Fr', { noMiFr: true }));
+  // ---- DE40 LVN Muster-Filter: ADX ≥ 30 + kein Montag + LVN-Tiefe nicht 0,20–0,35 (alle 6), ADX 30 allein (Basis, Dist150)
+  const gDE = 'DE40 LVN Muster-Filter (Test)';
+  const DEN = { 'de40-basis': 'Basis', 'de40-confl3': 'Confluence 3', 'de40-dist150': 'Distance 150', 'de40-q07': 'Quality 0.7', 'de40-adx25': 'ADX 25', 'de40-combo': 'Combo' };
+  for (const [bid, nm] of Object.entries(DEN)) {
+    const b = V.find((x) => x.id === bid);
+    V.push({ ...b, id: `${bid}-mf`, name: `LVN ${nm}: ADX ≥ 30, ohne Mo, LVN-Tiefe`, group: gDE, base: bid,
+      desc: `${b.name} + ADX_MIN 30, kein Montag, LVN-Tiefe nicht 0,20–0,35`, code: deFilterPatch(b.code, { adxMin: 30, noMonday: true, lvnExcl: [0.2, 0.35] }) });
+  }
+  for (const bid of ['de40-basis', 'de40-dist150']) {
+    const b = V.find((x) => x.id === bid);
+    V.push({ ...b, id: `${bid}-adx30`, name: `LVN ${DEN[bid]}: ADX ≥ 30`, group: gDE, base: bid, desc: `${b.name} + ADX_MIN 30`, code: deFilterPatch(b.code, { adxMin: 30 }) });
+  }
+  // ---- NAS Muster + Swing: F618ATR und Fib50 LB2 (Gap-Filter bewusst NICHT: Merkmal enthält für Signale vor 15:30 Lookahead)
+  const gNM = 'NAS Muster + Swing (Test)';
+  const f618 = V.find((x) => x.id === 'nas-f618atr'), f50 = V.find((x) => x.id === 'nas-fib50-lb2');
+  const nm = (id, b, name, desc, code) => ({ ...b, id, name, group: gNM, base: b.id, desc, code });
+  V.push(nm('nas-f618-h15', f618, 'F618ATR ohne 15 Uhr', 'keine Signale 15:00–15:59 Berlin', nasFilterPatch(f618.code, { noHour15: true })));
+  V.push(nm('nas-f618-bosext', f618, 'F618ATR BOS + echtes Extrem', 'Swing: BOS per Schlusskurs, Fib-Anker = echtes Extrem', nasSwingPatch(f618.code, { bosClose: true, trueExt: true }, 1)));
+  V.push(nm('nas-f618-l2r1ext', f618, 'F618ATR Fraktal L2/R1 + echtes Extrem', 'Swing: Fraktal 2 links / 1 rechts, Fib-Anker = echtes Extrem', nasSwingPatch(f618.code, { method: { type: 'fractal', L: 2, R: 1 }, trueExt: true }, 1)));
+  V.push(nm('nas-f618-l2r1ext-h15', f618, 'F618ATR L2/R1 + Extrem, ohne 15 Uhr', 'Swing L2/R1 + echtes Extrem, keine Signale 15 Uhr',
+    nasFilterPatch(nasSwingPatch(f618.code, { method: { type: 'fractal', L: 2, R: 1 }, trueExt: true }, 1), { noHour15: true })));
+  V.push(nm('nas-f50lb2-h15mo', f50, 'Fib50 LB2 ohne 15 Uhr, ohne Mo', 'keine Signale 15 Uhr, kein Montag', nasFilterPatch(f50.code, { noHour15: true, noMonday: true })));
+  // ---- NAS: Swing-Methoden auf F618ATR (Lookback 1) und Fib61 LB2
+  const SW_NAS = [
+    ['zz1', 'Zigzag 1,0×ATR', { method: { type: 'zigzag', k: 1 } }],
+    ['zz15', 'Zigzag 1,5×ATR', { method: { type: 'zigzag', k: 1.5 } }],
+    ['zz2', 'Zigzag 2,0×ATR', { method: { type: 'zigzag', k: 2 } }],
+    ['zz3', 'Zigzag 3,0×ATR', { method: { type: 'zigzag', k: 3 } }],
+    ['l3r1', 'Fraktal links 3 / rechts 1', { method: { type: 'fractal', L: 3, R: 1 } }],
+    ['l5r2', 'Fraktal links 5 / rechts 2', { method: { type: 'fractal', L: 5, R: 2 } }],
+    ['bos', 'BOS per Schlusskurs', { bosClose: true }],
+    ['ext', 'Echtes Extrem als Fib-Anker', { trueExt: true }],
+  ];
+  for (const [bid, short, lb] of [['nas-f618atr', 'f618', 1], ['nas-fib61-lb2', 'lb2', 2]]) {
+    const b = V.find((x) => x.id === bid);
+    for (const [k, label, cfg] of SW_NAS) {
+      V.push({ ...b, id: `nas-sw-${short}-${k}`, name: `${short === 'f618' ? 'F618ATR' : 'Fib61 LB2'}: ${label}`, group: 'NAS Swing-Methoden (Test)',
+        base: bid, desc: `${b.name}, Swing-Erkennung: ${label}`, code: nasSwingPatch(b.code, cfg, lb) });
+    }
+  }
   return V;
 }
 

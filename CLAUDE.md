@@ -157,3 +157,12 @@ Gesamtvergleich: `out/live/vergleich.html` (+ CSV-Exporte), Einzelreports `out/l
   (54 Trades). ADX 30–35 allein nicht robust. Nichts davon signifikant; Varianten teilen viele Signale -> nicht unabhängig.
   Als Code-Patch im Katalog (Gruppe `Muster-Filter`, `euDayAdxPatch`): C4 Ø +0,08R (333 Tr., H 0/+0,15), C6 +0,05R, C5 ±0, C3 ±0,
   eu-sbf +0,16R (66 Tr.), eu-sbf-tp075 +0,08R. Alle besser als ihre Basis in beiden Hälften, keine signifikant (p ≥ 0,22).
+- Muster DE40 LVN + NAS100 (04.11.2026, Übersicht `out/live/muster-swing.html`, Engine-Filter-Re-Runs auf allen 6+6 Varianten):
+  DE40: ADX ≥ 30 (Plateau 30–35), ohne Montag, LVN-Tiefe nicht 0,20–0,35 verbessern alle 6 in beiden Hälften; kombiniert +0,29 … +0,42R.
+  NAS: ohne Signale 15 Uhr (US-Open) → 5/6 besser (meist +0,02–0,04R). **Achtung: `ctx_gapRel` ist für US100 (Sitzung ab 15:30) bei
+  Signalen vor 15:30 Lookahead** – Gap-Filter für NAS ungültig. DE40 nicht betroffen (Gap um 09:00 bekannt).
+  Als Code-Patch im Katalog (Gruppen `DE40 LVN Muster-Filter`, `NAS Muster + Swing`): LVN *-mf (ADX_MIN 30, ohne Mo, LVN-Tiefe ≠ 0,20–0,35)
+  alle 6 positiv +0,15 … +0,33R (Basis +0,33R, p 0,07); ADX 30 allein als Code-Patch nur +0,08 / ±0R. F618ATR L2/R1 + Extrem ohne 15 Uhr
+  +0,31R (p 0,003, DD 10,7R); Fib50 LB2 ohne 15 Uhr + Mo +0,18R (p 0,017).
+- NAS-Swing-Erkennung (`nasSwingPatch`, Gruppe `NAS Swing-Methoden`): Original-Fraktal fast optimal; Zigzag/größere Fraktale schlechter.
+  Leicht besser: BOS per Schlusskurs + echtes Extrem (F618ATR +0,28R). Bester Einzelwert Fraktal L2/R1 + echtes Extrem +0,29R (schmale Spitze).
