@@ -149,3 +149,17 @@ test('Muster-Filter DE40/NAS als Code-Patch: Fundstellen greifen, Basis unverän
   const out = run({ items: [{ json: { prices: m15 } }, { json: { prices: m15.slice(0, 60) } }, { json: {} }], state: {}, DateCls: makeDate(clock), IntlObj: makeIntl() })[0].json;
   assert.match(out.error, /keine Signale 15:00/);
 });
+
+test('NAS Chop-Filter: MA-Regel und Qualitätsfilter als Code-Patch, Basis unverändert', () => {
+  const cat = buildCatalog();
+  const v = cat.find((x) => x.id === 'nas-f618-ma0-er04');
+  assert.equal(v.base, 'nas-f618atr');
+  assert.match(v.code, /const MA_DIST_MIN\s*=\s*0;/);
+  assert.match(v.code, /const USE_MA_DISTANCE_FILTER\s*=\s*true;/);
+  assert.match(v.code, /"er":0\.4/);
+  assert.match(v.code, /__qOk\('BUY', relevantLow, sh1\)/);
+  const lb3 = cat.find((x) => x.id === 'nas-f61lb3-ma0');
+  assert.match(lb3.code, /const USE_MA_DISTANCE_FILTER\s*=\s*true;/);
+  assert.doesNotMatch(cat.find((x) => x.id === 'nas-fib61-lb3').code, /USE_MA_DISTANCE_FILTER\s*=\s*true/);
+  assert.match(cat.find((x) => x.id === 'nas-fib61-lb3').code, /MA_DIST_MIN\s*=\s*30;/);
+});

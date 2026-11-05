@@ -166,3 +166,14 @@ Gesamtvergleich: `out/live/vergleich.html` (+ CSV-Exporte), Einzelreports `out/l
   +0,31R (p 0,003, DD 10,7R); Fib50 LB2 ohne 15 Uhr + Mo +0,18R (p 0,017).
 - NAS-Swing-Erkennung (`nasSwingPatch`, Gruppe `NAS Swing-Methoden`): Original-Fraktal fast optimal; Zigzag/größere Fraktale schlechter.
   Leicht besser: BOS per Schlusskurs + echtes Extrem (F618ATR +0,28R). Bester Einzelwert Fraktal L2/R1 + echtes Extrem +0,29R (schmale Spitze).
+  Abstand sh2 → sh1 (`minBos`/`minBosAtr`/`minBars`, `maxBos`/`maxBosAtr`, je mit BOS per Schlusskurs, Lookback 1/1–3/3) bringt keine
+  verlässliche Verbesserung: F618ATR wird mit jedem Mindestabstand schlechter (≥20 Pkt +0,17R, ≥40 +0,04R), Höchstabstände streuen ohne Muster.
+  Zusätzlicher Kontext über N Kerzen (`hiWin`/`winN`/`anchorN`, N = 30/50/100, Original-Lookbacks bleiben): sh1 als N-Kerzen-Extrem macht
+  F618ATR schlechter (+0,24 → +0,20/+0,16/+0,11R), Fenster wirkungslos (Swings liegen ohnehin in den letzten 50 Kerzen),
+  N-Kerzen-Anker zerstört F618ATR (SL zu groß, −0,08 … −0,56R). Kein Plateau bei Fib61/Fib50 -> nicht übernehmen.
+- Chop vermeiden (05.11.2026, Übersicht `out/live/nas-chop.html`, `nasQualityPatch`/`nasEntryPatch`): Stärkster Hebel ist die MA-Regel
+  „Fib-Level jenseits SMA50 und SMA200“ (`USE_MA_DISTANCE_FILTER = true`, `MA_DIST_MIN = 0`): 6/6 NAS-Varianten besser in beiden Hälften,
+  Plateau mit Optimum bei 0. Kombi MA0 + Effizienz ≥ 0,4 (F618ATR +0,31R, t 3,2) bzw. MA0 + ohne 15 Uhr (Fib61 LB1 +0,18R).
+  CHOP, ADX, EMA-Steigung, SMA-Abstand, Impuls-Tempo einzeln ohne stabiles Muster. Live (d_tradelog 23.10.–05.11.): 70 NAS-Trades −11,1R.
+  Im Katalog (Gruppe `NAS Chop-Filter`): nas-<bot>-ma0 für alle 6 + beste Kombi je Bot; alle besser als ihre Basis,
+  F618ATR MA0 + Effizienz 0,4 +0,31R (p 0,002, beide Hälften +0,07R), Fib61 LB1 MA0 + ohne 15 Uhr +0,18R (p 0,017).

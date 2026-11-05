@@ -192,11 +192,24 @@ const SWING_HELPERS = `
   }
 `;
 
-// NAS: Swing-Methode tauschen (+ optional BOS per Schlusskurs, echtes Extrem der Bewegung als Fib-Anker)
+// NAS: Swing-Methode tauschen (+ optional BOS per Schlusskurs, echtes Extrem der Bewegung als Fib-Anker,
+//      Mindestabstand sh2 -> sh1 in Punkten (minBos), in × ATR14 M15 (minBosAtr) oder in Kerzen (minBars),
+//      Höchstabstand in Punkten (maxBos) oder × ATR (maxBosAtr),
+//      Kontext über N Kerzen: hiWin = sh1 ist Extrem der N Kerzen bis sh1, winN = sh2 und sh1 in den letzten N Kerzen,
+//      anchorN = Fib-Anker = Extrem der N Kerzen vor sh1/sl1)
 export function nasSwingPatch(code, cfg, currentLb) {
-  const c = { method: null, bosClose: false, trueExt: false, ...cfg };
+  const c = { method: null, bosClose: false, trueExt: false, minBos: null, minBosAtr: null, minBars: null, maxBos: null, maxBosAtr: null, hiWin: null, winN: null, anchorN: null, ...cfg };
   code = code.replace(/try\s*\{/, (m) => `${m}\n  const __SW = ${JSON.stringify(c)};\n${SWING_HELPERS}
-  function __bosOk(dir, ref) { if (!__SW.bosClose) return true;
+  function __bosOk(dir, ref, cur) {
+    const dist = dir === 'BUY' ? cur.price - ref.price : ref.price - cur.price;
+    if (__SW.minBos != null && dist < __SW.minBos) return false;
+    if (__SW.minBosAtr != null) { const a = __atrSeries(highs, lows, closes); if (dist < __SW.minBosAtr * a[a.length - 1]) return false; }
+    if (__SW.minBars != null && cur.index - ref.index < __SW.minBars) return false;
+    if (__SW.hiWin != null) { for (let k = Math.max(0, cur.index - __SW.hiWin + 1); k <= cur.index; k++) if (dir === 'BUY' ? highs[k] > cur.price : lows[k] < cur.price) return false; }
+    if (__SW.winN != null && ref.index < closes.length - __SW.winN) return false;
+    if (__SW.maxBos != null && dist > __SW.maxBos) return false;
+    if (__SW.maxBosAtr != null) { const a = __atrSeries(highs, lows, closes); if (dist > __SW.maxBosAtr * a[a.length - 1]) return false; }
+    if (!__SW.bosClose) return true;
     for (let k = ref.index + 1; k < closes.length; k++) if (dir === 'BUY' ? closes[k] > ref.price : closes[k] < ref.price) return true;
     return false; }
   function __ext(dir, a, b) { let best = null;
@@ -208,14 +221,80 @@ export function nasSwingPatch(code, cfg, currentLb) {
     code = replaceExact(code, `const swH = findSwingHighs(highs, ${currentLb});\n  const swL = findSwingLows(lows, ${currentLb});`,
       'const __sw = __swings(highs, lows, closes, __SW.method);\n  const swH = __sw.H;\n  const swL = __sw.L;');
   }
-  code = replaceExact(code, 'if (sh1.price > sh2.price) {', "if (sh1.price > sh2.price && __bosOk('BUY', sh2)) {");
-  code = replaceExact(code, 'if (sl1.price < sl2.price) {', "if (sl1.price < sl2.price && __bosOk('SELL', sl2)) {");
+  code = replaceExact(code, 'if (sh1.price > sh2.price) {', "if (sh1.price > sh2.price && __bosOk('BUY', sh2, sh1)) {");
+  code = replaceExact(code, 'if (sl1.price < sl2.price) {', "if (sl1.price < sl2.price && __bosOk('SELL', sl2, sl1)) {");
+  if (c.anchorN) {
+    code = replaceExact(code, 'const range = sh1.price - relevantLow.price;',
+      "{ let e = null; for (let k = Math.max(0, sh1.index - __SW.anchorN); k < sh1.index; k++) if (!e || lows[k] < e.price) e = { index: k, price: lows[k] }; if (e && e.price < relevantLow.price) relevantLow = e; }\n        const range = sh1.price - relevantLow.price;");
+    code = replaceExact(code, 'const range = relevantHigh.price - sl1.price;',
+      "{ let e = null; for (let k = Math.max(0, sl1.index - __SW.anchorN); k < sl1.index; k++) if (!e || highs[k] > e.price) e = { index: k, price: highs[k] }; if (e && e.price > relevantHigh.price) relevantHigh = e; }\n        const range = relevantHigh.price - sl1.price;");
+  }
   if (c.trueExt) {
     code = replaceExact(code, 'const range = sh1.price - relevantLow.price;',
       "{ const e = __ext('BUY', sh2.index, sh1.index); if (e && e.price < relevantLow.price) relevantLow = e; }\n        const range = sh1.price - relevantLow.price;");
     code = replaceExact(code, 'const range = relevantHigh.price - sl1.price;',
       "{ const e = __ext('SELL', sl2.index, sl1.index); if (e && e.price > relevantHigh.price) relevantHigh = e; }\n        const range = relevantHigh.price - sl1.price;");
   }
+  return code;
+}
+
+// NAS: Qualität der Swing-Bewegung / Marktphase (Test 05.11.2026, Chop vermeiden). Alle Werte auf M15, ATR = ATR14 M15.
+//   er        : Efficiency Ratio des Impulsbeins (relevantLow -> sh1): |Netto| / Summe |Schluss-Änderungen| >= er
+//   chopMax   : Choppiness Index (chopN Kerzen, Default 14) <= chopMax
+//   crossMax  : Kreuzungen Schluss / EMA50 in den letzten crossN Kerzen (Default 30) <= crossMax
+//   slopeAtr  : EMA50-Steigung über 8 Kerzen in Trade-Richtung >= slopeAtr × ATR
+//   sepAtr    : SMA50 auf der richtigen Seite der SMA200 und |SMA50 - SMA200| >= sepAtr × ATR
+//   adxMin    : ADX14 (M15) >= adxMin
+//   speedAtr  : Impulsbein-Range / Anzahl Kerzen >= speedAtr × ATR (Verdrängung)
+export function nasQualityPatch(code, cfg) {
+  const q = { er: null, chopMax: null, chopN: 14, crossMax: null, crossN: 30, slopeAtr: null, sepAtr: null, adxMin: null, speedAtr: null, ...cfg };
+  code = code.replace(/try\s*\{/, (m) => `${m}\n  const __Q = ${JSON.stringify(q)};
+  function __qOk(dir, a, b) {
+    const H = highs, Lo = lows, C = closes, n = C.length;
+    const tr = (k) => Math.max(H[k] - Lo[k], Math.abs(H[k] - C[k-1]), Math.abs(Lo[k] - C[k-1]));
+    let atr = 0; for (let k = n - 14; k < n; k++) atr += tr(k); atr /= 14;
+    const up = dir === 'BUY';
+    if (__Q.er != null) { let path = 0; for (let k = a.index + 1; k <= b.index; k++) path += Math.abs(C[k] - C[k-1]);
+      const net = Math.abs(C[b.index] - C[a.index]); if (!(path > 0 && net / path >= __Q.er)) return false; }
+    if (__Q.speedAtr != null) { const bars = Math.max(1, b.index - a.index); if (Math.abs(b.price - a.price) / bars < __Q.speedAtr * atr) return false; }
+    if (__Q.chopMax != null) { const N = __Q.chopN; let s = 0, hi = -Infinity, lo = Infinity;
+      for (let k = n - N; k < n; k++) { s += tr(k); hi = Math.max(hi, H[k]); lo = Math.min(lo, Lo[k]); }
+      const chop = 100 * Math.log10(s / (hi - lo)) / Math.log10(N); if (chop > __Q.chopMax) return false; }
+    const ema = []; { const kk = 2 / 51; let e = C.slice(0, 50).reduce((x, y) => x + y, 0) / 50; for (let k = 0; k < n; k++) { if (k >= 50) e = C[k] * kk + e * (1 - kk); ema.push(e); } }
+    if (__Q.crossMax != null) { let c = 0; for (let k = n - __Q.crossN + 1; k < n; k++) if (Math.sign(C[k] - ema[k]) !== Math.sign(C[k-1] - ema[k-1])) c++; if (c > __Q.crossMax) return false; }
+    if (__Q.slopeAtr != null) { const sl = ema[n-1] - ema[n-9]; if ((up ? sl : -sl) < __Q.slopeAtr * atr) return false; }
+    if (__Q.sepAtr != null) { const s50 = C.slice(-50).reduce((x, y) => x + y, 0) / 50, s200 = C.slice(-200).reduce((x, y) => x + y, 0) / Math.min(200, n);
+      const d = up ? s50 - s200 : s200 - s50; if (d < __Q.sepAtr * atr) return false; }
+    if (__Q.adxMin != null) { const P = 14; let trs = 0, pd = 0, md = 0; const dx = [];
+      for (let k = 1; k < n; k++) { const t = tr(k), u = H[k] - H[k-1], d = Lo[k-1] - Lo[k]; const p = u > d && u > 0 ? u : 0, mm = d > u && d > 0 ? d : 0;
+        if (k <= P) { trs += t; pd += p; md += mm; if (k < P) continue; } else { trs = trs - trs / P + t; pd = pd - pd / P + p; md = md - md / P + mm; }
+        const pi = trs ? 100 * pd / trs : 0, mi = trs ? 100 * md / trs : 0; dx.push(pi + mi ? 100 * Math.abs(pi - mi) / (pi + mi) : 0); }
+      let adx = dx.slice(0, P).reduce((x, y) => x + y, 0) / P; for (let k = P; k < dx.length; k++) adx = (adx * (P - 1) + dx[k]) / P;
+      if (adx < __Q.adxMin) return false; }
+    return true;
+  }
+`);
+  const parts = code.split('if (range > RANGE_MIN) {');
+  if (parts.length !== 3) throw new Error('Range-Bedingung nicht 2x gefunden');
+  return parts[0] + "if (range > RANGE_MIN && __qOk('BUY', relevantLow, sh1)) {" + parts[1] + "if (range > RANGE_MIN && __qOk('SELL', relevantHigh, sl1)) {" + parts[2];
+}
+
+// NAS: Entry-Parameter weglassen/verändern (Test 05.11.2026)
+export function nasEntryPatch(code, { consts = {}, noEma = false, noDistCheck = false, maMode = null } = {}) {
+  for (const [k, v] of Object.entries(consts)) code = setConst(code, k, v);
+  // maMode: 'sma50' = nur Fib-Level jenseits SMA50 prüfen, 'sma200' = nur Abstand zur SMA200 prüfen
+  if (maMode === 'sma50') {
+    code = replaceExact(code, '(fibLevel > sma50 && (fibLevel - sma200) > MA_DIST_MIN)', '(fibLevel > sma50)');
+    code = replaceExact(code, '(fibLevel < sma50 && (sma200 - fibLevel) > MA_DIST_MIN)', '(fibLevel < sma50)');
+  } else if (maMode === 'sma200') {
+    code = replaceExact(code, '(fibLevel > sma50 && (fibLevel - sma200) > MA_DIST_MIN)', '((fibLevel - sma200) > MA_DIST_MIN)');
+    code = replaceExact(code, '(fibLevel < sma50 && (sma200 - fibLevel) > MA_DIST_MIN)', '((sma200 - fibLevel) > MA_DIST_MIN)');
+  }
+  if (noEma) {
+    code = replaceExact(code, 'if (emaBull) {', 'if (true) {');
+    code = replaceExact(code, 'if (emaBear && signal === "NONE") {', 'if (signal === "NONE") {');
+  }
+  if (noDistCheck) code = replaceExact(code, 'distToFib > 0 && distToFib < range', 'distToFib > 0', 2);
   return code;
 }
 
@@ -355,6 +434,22 @@ export function buildCatalog() {
   V.push(nm('nas-f618-l2r1ext-h15', f618, 'F618ATR L2/R1 + Extrem, ohne 15 Uhr', 'Swing L2/R1 + echtes Extrem, keine Signale 15 Uhr',
     nasFilterPatch(nasSwingPatch(f618.code, { method: { type: 'fractal', L: 2, R: 1 }, trueExt: true }, 1), { noHour15: true })));
   V.push(nm('nas-f50lb2-h15mo', f50, 'Fib50 LB2 ohne 15 Uhr, ohne Mo', 'keine Signale 15 Uhr, kein Montag', nasFilterPatch(f50.code, { noHour15: true, noMonday: true })));
+  // ---- NAS Chop-Filter (05.11.2026): MA-Regel „Fib-Level jenseits SMA50 + SMA200“ (MA-Filter an, Abstand 0) + beste Kombi je Bot
+  const gCH = 'NAS Chop-Filter (Test)';
+  const ma0 = (c) => nasEntryPatch(c, { consts: { USE_MA_DISTANCE_FILTER: true, MA_DIST_MIN: 0 } });
+  const NASN = { 'nas-f618atr': ['f618', 'F618ATR'], 'nas-fib50-lb2': ['f50lb2', 'Fib50 LB2'], 'nas-fib50-lb3': ['f50lb3', 'Fib50 LB3'],
+    'nas-fib61-lb1': ['f61lb1', 'Fib61 LB1'], 'nas-fib61-lb2': ['f61lb2', 'Fib61 LB2'], 'nas-fib61-lb3': ['f61lb3', 'Fib61 LB3'] };
+  const ch = (bid, suf, label, desc, fn) => { const b = V.find((x) => x.id === bid);
+    V.push({ ...b, id: `nas-${NASN[bid][0]}-${suf}`, name: `${NASN[bid][1]}: ${label}`, group: gCH, base: bid, desc, code: fn(b.code) }); };
+  for (const bid of Object.keys(NASN)) ch(bid, 'ma0', 'MA-Regel (Fib jenseits SMA50+200)', 'USE_MA_DISTANCE_FILTER an, MA_DIST_MIN 0', ma0);
+  ch('nas-f618atr', 'ma0-er04', 'MA-Regel + Effizienz ≥ 0,4', 'MA-Regel + Efficiency Ratio des Impulsbeins ≥ 0,4', (c) => nasQualityPatch(ma0(c), { er: 0.4 }));
+  ch('nas-f618atr', 'ma0-h15', 'MA-Regel + ohne 15 Uhr', 'MA-Regel + keine Signale 15:00–15:59 Berlin', (c) => nasFilterPatch(ma0(c), { noHour15: true }));
+  ch('nas-f618atr', 'ma0-x6', 'MA-Regel + EMA50-Kreuzungen ≤ 6', 'MA-Regel + max. 6 Kreuzungen Schluss/EMA50 in 30 M15-Kerzen', (c) => nasQualityPatch(ma0(c), { crossMax: 6 }));
+  ch('nas-fib61-lb1', 'ma0-h15', 'MA-Regel + ohne 15 Uhr', 'MA-Regel + keine Signale 15:00–15:59 Berlin', (c) => nasFilterPatch(ma0(c), { noHour15: true }));
+  ch('nas-fib50-lb2', 'ma0-h15', 'MA-Regel + ohne 15 Uhr', 'MA-Regel + keine Signale 15:00–15:59 Berlin', (c) => nasFilterPatch(ma0(c), { noHour15: true }));
+  ch('nas-fib50-lb3', 'ma0-chop60', 'MA-Regel + CHOP ≤ 60', 'MA-Regel + Choppiness Index (14 M15) ≤ 60', (c) => nasQualityPatch(ma0(c), { chopMax: 60 }));
+  ch('nas-fib61-lb2', 'ma0-chop60', 'MA-Regel + CHOP ≤ 60', 'MA-Regel + Choppiness Index (14 M15) ≤ 60', (c) => nasQualityPatch(ma0(c), { chopMax: 60 }));
+  ch('nas-fib61-lb3', 'ma0-x6', 'MA-Regel + EMA50-Kreuzungen ≤ 6', 'MA-Regel + max. 6 Kreuzungen Schluss/EMA50 in 30 M15-Kerzen', (c) => nasQualityPatch(ma0(c), { crossMax: 6 }));
   // ---- NAS: Swing-Methoden auf F618ATR (Lookback 1) und Fib61 LB2
   const SW_NAS = [
     ['zz1', 'Zigzag 1,0×ATR', { method: { type: 'zigzag', k: 1 } }],
