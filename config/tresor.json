@@ -1,0 +1,22 @@
+{
+ "_zweck": "Versiegelte Jahre (Tresor): nie zur Suche, Optimierung oder Mustersuche verwenden. Je fertigem Kandidaten genau einmal öffnen, mit vorher festgelegten Kriterien. Leser: src/core/tresor.js, tools/tresor.py. Protokoll: config/tresor_protokoll.jsonl.",
+ "festgelegt": "2026-11-09",
+ "zeitbasis": "Kalenderjahr nach UTC-Zeitstempel der Kerze bzw. des Einstiegs",
+ "jahre": {
+  "DE40": [2014, 2017, 2020, 2023],
+  "US100": [2014, 2017, 2020, 2023],
+  "EURUSD": [2005, 2008, 2011, 2014, 2017, 2020, 2023]
+ },
+ "entwicklung": {
+  "DE40": "2013, 2015, 2016, 2018, 2019, 2021, 2022, 2024–2026 (2024–2026 bereits für die Variantensuche benutzt)",
+  "US100": "2012, 2013, 2015, 2016, 2018, 2019, 2021, 2022, 2024–2026",
+  "EURUSD": "2004, 2006, 2007, 2009, 2010, 2012, 2013, 2015, 2016, 2018, 2019, 2021, 2022, 2024–2026"
+ },
+ "regeln": [
+  "Standard: Läufe sehen die Tresor-Jahre nicht (Kerzen werden beim Laden entfernt).",
+  "Öffnen nur mit Begründung (bin/live.js --tresor \"<Begründung>\"); jede Öffnung wird mit Zeit, Varianten und Kriterien protokolliert.",
+  "Kriterien (Ø R, t, Zeitdrittel, Δ zur Basis) vor dem Öffnen in den Bericht/CLAUDE.md schreiben.",
+  "Fällt ein Kandidat im Tresor durch, wird er verworfen – kein Nachjustieren, kein erneutes Öffnen für diesen Kandidaten.",
+  "Der Forward-Test live bleibt der letzte Tresor."
+ ]
+}

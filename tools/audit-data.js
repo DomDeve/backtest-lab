@@ -5,6 +5,7 @@
 //
 //   node tools/audit-data.js data/raw [--out out/datenpruefung]
 
+import { cleanSession, epicSession } from '../src/core/sessions.js';
 import fs from 'node:fs';
 import path from 'node:path';
 import { loadBars } from '../src/data/load.js';
@@ -15,7 +16,7 @@ const outDir = process.argv.includes('--out') ? process.argv[process.argv.indexO
 
 // Zeitfenster, in denen die Strategien Kerzen brauchen (Lücken dort sind kritisch)
 const WINDOWS = {
-  DE40: { tz: 'Europe/Berlin', from: '09:00', to: '17:25', label: 'Xetra 09:00–17:30 Berlin' },
+  DE40: { ...cleanSession('DE40'), label: `Xetra ${epicSession('DE40').open_local}–${epicSession('DE40').close_local} Berlin` }, // config/sessions.yaml
   US100: { tz: 'UTC', from: '07:00', to: '18:55', label: 'NAS-Bot 07:00–19:00 UTC' },
   EURUSD: { tz: 'UTC', from: '06:00', to: '18:55', label: 'EURUSD-Bot 06:00–19:00 UTC' },
 };

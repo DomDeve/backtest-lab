@@ -1,0 +1,12 @@
+modus: challenge                 # challenge | funded – stellt nur Dominique um
+
+erfolg:
+  r_definition: "1R = geplantes Risiko beim Einstieg (0,5 % = 500 USD)"
+  challenge: { phase1_usd: 10000, phase2_usd: 5000 }   # 20R / 10R
+  funded:    { ziel_r_pro_monat: 100 }                  # netto, alle Bots des Kontos zusammen
+
+misserfolg:                      # FTMO 2-Step 100k – jede Verletzung = gescheitert
+  max_tagesverlust_usd: 5000     # fest 5 % vom Startkapital, inkl. offener Positionen,
+                                 # gemessen ab Saldo 00:00 (Prag/Berlin)
+  max_gesamtverlust_usd: 10000   # statisch: Equity nie unter 90.000
+  min_handelstage: 4

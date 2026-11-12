@@ -8,9 +8,12 @@
 //             Nur der erste Ausbruch zählt. SL = Open 09:00.
 //   Ausstieg: Schluss zurück in der Zone (ab Einstiegskerze) -> raus zur nächsten Kerze, spätestens 17:30.
 
+import { berlinSession } from '../core/sessions.js';
 import { hmList, addMinutes } from '../core/time.js';
 
 function byHmOf(bars) { const m = {}; for (const c of bars) m[c.hm] = c; return m; }
+
+const XETRA = berlinSession('DE40'); // Xetra 09:00–17:30 Europe/Berlin
 
 export default {
   id: 'de40-noiseb',
@@ -20,10 +23,10 @@ export default {
   historyDays: 40,
   defaults: {
     halfSpread: 0.9,
-    openHm: '09:00',
+    openHm: XETRA.from, // config/sessions.yaml
     signalFrom: '09:30',
     signalTo: '17:20', // inklusive
-    exitHm: '17:30',
+    exitHm: XETRA.to,
     lookback: 14,
     bandMult: 1, // Zone = Open × (1 ± bandMult·σ)
     exitOnZone: true,

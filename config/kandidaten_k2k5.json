@@ -1,0 +1,15 @@
+{
+  "_hinweis": "Kandidaten K1/K2/K5 (07.11.2026). Sessions aus config/sessions.yaml; EURUSD zusätzlich mit den Zeiten aus dem Auftrag (08:00 London / 08:00 NY). Slippage je Seite in Preiseinheiten (Annahme), Spread aus den Bid/Ask-Kerzen. FX-Ende: Start + 8 h, spätestens 22:00 Berlin. Stammdaten: config/epics.json.",
+  "slippage": { "DE40": 0.5, "US100": 0.5, "EURUSD": 0.00001 },
+  "sessions": [
+    { "id": "DE40", "epic": "DE40", "session": "cash" },
+    { "id": "US100", "epic": "US100", "session": "cash" },
+    { "id": "EURUSD-LON0700", "epic": "EURUSD", "session": "london", "label": "London 07:00 (sessions.yaml)" },
+    { "id": "EURUSD-NY0830", "epic": "EURUSD", "session": "newyork", "label": "New York 08:30 (sessions.yaml)" },
+    { "id": "EURUSD-LON0800", "epic": "EURUSD", "session": "london", "open_local": "08:00", "label": "London 08:00 (Auftrag)" },
+    { "id": "EURUSD-NY0800", "epic": "EURUSD", "session": "newyork", "open_local": "08:00", "label": "New York 08:00 (Auftrag)" }
+  ],
+  "fx_end_hours": 8,
+  "fx_end_latest_berlin": "22:00",
+  "quality": { "min_months": 18, "max_missing_pct": 2 }
+}

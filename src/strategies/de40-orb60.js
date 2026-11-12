@@ -10,7 +10,10 @@
 // Zusätzliche Parameter (Default = live-identisch) erlauben Varianten für die Analyse:
 //   tpR (fester TP in R, z.B. 2 = "Schatten TP2R"), stopMode 'mid'|'opposite', breakevenR.
 
+import { berlinSession } from '../core/sessions.js';
 import { hmList, addMinutes } from '../core/time.js';
+
+const XETRA = berlinSession('DE40'); // Xetra 09:00–17:30 Europe/Berlin
 
 export default {
   id: 'de40-orb60',
@@ -20,10 +23,10 @@ export default {
   historyDays: 2,
   defaults: {
     halfSpread: 0.9,
-    rangeFrom: '09:00',
+    rangeFrom: XETRA.from, // config/sessions.yaml
     rangeTo: '10:00', // exklusiv: letzte Range-Kerze = 09:55
     signalTo: '12:00', // exklusiv
-    exitHm: '17:30',
+    exitHm: XETRA.to,
     stopMode: 'mid', // 'mid' = Range-Mitte (live), 'opposite' = gegenüberliegende Range-Seite
     tpR: null, // null = kein TP (live)
     breakevenR: null, // z.B. 1 -> SL auf Einstand, sobald 1R erreicht (Schlusskurs-Basis)

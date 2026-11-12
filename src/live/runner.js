@@ -1,3 +1,5 @@
+import { tradeCosts, profileName } from '../core/costs.js';
+import { newsTimes, inNewsWindow } from '../core/news.js';
 // Live-Code-Engine: simuliert den kompletten n8n-Ablauf eines Bots über historische M5-Kerzen.
 //
 //   Cron (Mo–Fr 06:00–20:55 Berlin, alle 5 Min)
@@ -75,7 +77,7 @@ export function runLive({ bars, days, variant, engine = {}, range = {}, params =
       id: ++id, orderId: o.id, dir: o.dir, entry: fill, stop: o.stop, tp: o.tp, riskPts, size, riskMoney,
       date: L.date, wd: L.weekday, entryHm: L.hm, entryT: B.t, entryIdx: i, signalHm: o.signalHm, signalDate: o.signalDate,
       features: { ...o.features, post_waitMin: Math.round((B.t - o.placedT) / 60000), ...(dayCtx[o.signalDate] || {}) },
-      mfe: 0, mae: 0, spreadEntry: B.ao - B.bo, how, orderType: o.type,
+      mfe: 0, mae: 0, spreadEntry: B.ao - B.bo, how, orderType: o.type, size0: size, realized: 0, partialDone: false, stop0: o.stop, trailStage: '',
     };
     positions.push(p);
     stats.filled++;
@@ -84,14 +86,20 @@ export function runLive({ bars, days, variant, engine = {}, range = {}, params =
   const closePos = (p, B, i, price, reason, extra = {}) => {
     const sg = p.dir === 'BUY' ? 1 : -1;
     const pts = (price - p.entry) * sg;
-    const pnl = pts * p.size * E.pointValue;
+    const pnlGross = pts * p.size * E.pointValue + (p.realized || 0); // + Teilschließung (Trailing-Management)
+    // Broker-Kosten (Kommission, Swap, Zusatz-Slippage; Spread steckt schon in den Kursen) – E.costs === false schaltet ab
+    const cost = E.costs === false ? null : tradeCosts({ dir: p.dir, entry: p.entry, entryT: p.entryT, exitT: B.t, size: p.size0 || p.size, pointValue: E.pointValue, riskMoney: p.riskMoney, fill: p.how, reason },
+      V.symbol, E.costProfile || profileName(V), { commissionOverride: E.commissionOverride, slippageOverride: E.slippageOverride, spreadProfile: E.spreadProfile });
+    const pnl = pnlGross - (cost ? cost.total : 0);
     balance += pnl;
     const L = local(B.t, E.tz);
     (dailyPnl[L.date] ||= { realized: 0 }).realized += pnl;
     trades.push({
       id: trades.length + 1, strategy: V.name, date: p.date, wd: p.wd, dir: p.dir, signalHm: p.signalHm, entryHm: p.entryHm, entryT: p.entryT,
       entry: r(p.entry, 5), stop: r(p.stop, 5), tp: r(p.tp, 5), exitHm: L.hm, exitSignalHm: L.hm, exitDate: L.date, exitT: B.t, exit: r(price, 5), reason,
-      pts: r(pts, 5), riskPts: r(p.riskPts, 5), R: r(pts / p.riskPts, 3), size: r(p.size, 4), riskMoney: r(p.riskMoney, 2), pnl: r(pnl, 2), balanceAfter: r(balance, 2),
+      pts: r(pts, 5), riskPts: r(p.riskPts, 5), stopFinal: r(p.stop, 5), trail: p.trailStage || undefined, partial: p.partialDone || undefined, R: r(pnl / p.riskMoney, 3), Rgross: r(pts / p.riskPts, 3),
+      costR: cost ? r(cost.costR, 4) : 0, commission: cost ? r(cost.commission, 2) : 0, swap: cost ? r(cost.swap, 2) : 0, slippage: cost ? r(cost.slippage, 2) : 0, spreadAdj: cost ? r(cost.spreadAdj, 2) : 0,
+      nights: cost ? cost.nights : 0, swapKnown: cost ? cost.swapKnown : null, size: r(p.size, 4), riskMoney: r(p.riskMoney, 2), pnl: r(pnl, 2), balanceAfter: r(balance, 2),
       mfePts: r(p.mfe, 5), maePts: r(p.mae, 5), mfeR: r(p.mfe / p.riskPts, 3), maeR: r(p.mae / p.riskPts, 3),
       barsHeld: i - p.entryIdx + 1, minutesHeld: Math.round((B.t - p.entryT) / 60000) + 5, conflict: !!extra.conflict, spreadEntry: r(p.spreadEntry, 5),
       entryIdx: p.entryIdx, exitIdx: i, features: p.features, orderType: p.orderType, fill: p.how,
@@ -99,6 +107,25 @@ export function runLive({ bars, days, variant, engine = {}, range = {}, params =
     positions = positions.filter((x) => x !== p);
   };
   const touches = (o, B) => (o.dir === 'BUY' ? B.al <= o.level : B.bh >= o.level);
+
+  // ---------------------------------------------------------------- Trailing-Management (optional, engine.trailing)
+  // Nach trailingConfig der NAS-Bots: Breakeven bei +beR (SL auf Einstieg), Teilschließung partialPct % bei +partialR (Limit am Level),
+  // ab +trailStartR SL = bestes Extrem − trailR. Distanzen in R (Risiko = Abstand Einstieg–Anfangs-SL). Wird nach Schluss jeder Kerze
+  // angewendet (Management-Lauf alle 5 Min), neuer SL gilt ab der nächsten Kerze. tp: false = TP entfernen (Trailing läuft frei).
+  // Teilschließung: wird das Level in einer Kerze berührt, in der kein SL fiel, gilt sie zum Level.
+  const manage = (p, B, L) => {
+    const T = E.trailing, R = Math.abs(p.entry - p.stop0); if (!(R > 0)) return;
+    if (T.tp === false && p.tp != null && !p.tpRemoved) { p.tp = null; p.tpRemoved = true; }
+    const best = p.mfe; // günstigste Bewegung bisher (Punkte), inkl. dieser Kerze
+    if (T.partialR && !p.partialDone && best >= T.partialR * R) {
+      const lvl = L ? p.entry + T.partialR * R : p.entry - T.partialR * R; const part = p.size * (T.partialPct ?? 50) / 100;
+      p.realized += (L ? lvl - p.entry : p.entry - lvl) * part * E.pointValue; p.size -= part; p.partialDone = true; p.trailStage = 'TEIL';
+    }
+    let ns = p.stop;
+    if (T.beR != null && best >= T.beR * R) ns = L ? Math.max(ns, p.entry) : Math.min(ns, p.entry);
+    if (T.trailR != null && best >= (T.trailStartR ?? 0) * R) { const t = L ? p.entry + best - T.trailR * R : p.entry - best + T.trailR * R; ns = L ? Math.max(ns, t) : Math.min(ns, t); }
+    if (ns !== p.stop) { p.stop = ns; p.trailStage = (p.trailStage || '') + (T.trailR != null && best >= (T.trailStartR ?? 0) * R ? '+TRAIL' : '+BE'); }
+  };
 
   const processBar = (B, i) => {
     // Limit-Orders: Ablauf, Füllung
@@ -138,6 +165,7 @@ export function runLive({ bars, days, variant, engine = {}, range = {}, params =
         continue;
       }
       p.mfe = Math.max(p.mfe, fav); p.mae = Math.max(p.mae, adv);
+      if (E.trailing) manage(p, B, L);
     }
   };
 
@@ -145,7 +173,7 @@ export function runLive({ bars, days, variant, engine = {}, range = {}, params =
     const ord = { id: ++id, type: 'LIMIT', status: 'OPEN', placedT: T, signalHm: L.hm, signalDate: L.date, ...o };
     orders.push(ord);
     stats.placed++;
-    own.push({ id: ord.id, placedAt: T, direction: o.dir, level: o.level, stopLevel: o.stop, profitLevel: o.tp });
+    own.push({ id: ord.id, orderId: ord.id, expHours: (o.expiresT - T) / H, placedAt: T, direction: o.dir, level: o.level, stopLevel: o.stop, profitLevel: o.tp });
     return ord;
   };
   const cancel = (o, T) => {
@@ -156,7 +184,8 @@ export function runLive({ bars, days, variant, engine = {}, range = {}, params =
   const block = (why) => { stats.blocked[why] = (stats.blocked[why] || 0) + 1; return null; };
 
   // ---------------------------------------------------------------- Strategie-Lauf
-  const views = (i, spec) => spec.map(([tf, n, running, fmt]) => (fmt === 'bridge' ? series(tf).view(i, n, running).map(toBridge) : series(tf).view(i, n, running).map(toCapital)));
+  // engine.noTick: Abruf ohne ersten Kurs der neuen Kerze (Capital liefert die laufende M5-Kerze nur, wenn schon ein Tick da ist)
+  const views = (i, spec) => spec.map(([tf, n, running, fmt]) => (fmt === 'bridge' ? series(tf).view(i, n, running).map(toBridge) : series(tf).view(i, n, running, !!E.noTick).map(toCapital)));
   const callStrategy = (i, items) => {
     const logs = [];
     let out;
@@ -169,6 +198,7 @@ export function runLive({ bars, days, variant, engine = {}, range = {}, params =
     for (const k of reasons) if (!prevReasons.has(k)) reasonCount[k] = (reasonCount[k] || 0) + 1;
     prevReasons = reasons;
     if (out.error && /EXCEPTION|TypeError|ReferenceError/.test(out.error)) stats.errors[out.error] = (stats.errors[out.error] || 0) + 1;
+    if (params.trace) params.trace({ T: clock.now, out, logs }); // nur Diagnose (tools/trace-live.js), ändert nichts
     return out;
   };
 
@@ -187,6 +217,16 @@ export function runLive({ bars, days, variant, engine = {}, range = {}, params =
     return f;
   };
 
+  // Einzelfall im DE40-M5-Abruf (Ausführung 85038, 28.10.2026 09:20 UTC, Laufzeit 26 s statt ~8 s): dort stammte jeder
+  // Ask-Wert aus der FOLGENDEN Kerze (Bid korrekt). Nachprüfung 09.11.2026: 7 weitere Läufe (u. a. 84989, 85034, 85042,
+  // 85072, 85119, 90908) sauber, 199/199 Kerzen = Backtest-Daten. KEIN systematischer Fehler -> engine.de40AskShift bildet
+  // nur diesen Ausnahmefall nach und ist für Abgleiche nicht zu verwenden. Standard = saubere Daten.
+  const de40LiveM5 = (i, n) => bars.slice(Math.max(0, i - n), i).map((b, k, arr) => {
+    const nx = arr[k + 1] || bars[i];
+    const last = !arr[k + 1];
+    return toCapital({ t: b.t, bo: b.bo, bh: b.bh, bl: b.bl, bc: b.bc, ao: nx.ao, ah: last ? nx.ao : nx.ah, al: last ? nx.ao : nx.al, ac: last ? nx.ao : nx.ac, vol: b.vol, running: true });
+  });
+
   // ---------------------------------------------------------------- Familien (Order-Prüfung wie im Workflow)
   const family = {
     // d_ilikebigbots: Code Strategie NAS -> Signal NAS -> Combined Check NAS (v8) -> Should Cancel? -> PLACE LIMIT
@@ -201,11 +241,13 @@ export function runLive({ bars, days, variant, engine = {}, range = {}, params =
       const items = views(i, [['M15', 250, false, 'bridge'], ['H4', 150, false, 'bridge']]).map((p) => ({ json: { body: p } }));
       items.push({ json: { lot_size: 100, volume_step: 0.01, volume_min: 0.01, volume_max: 1000 } });
       const out = callStrategy(i, items);
-      return nasLikeCheck(out, T, L, B, { epicDayUtc: true, expiresH: out.expirationHours || 24 });
+      // seit 10.11.2026 (d_ftmo Version 31f089ff): Tageslimit zählt nur GEFÜLLTE Orders; engine.ftmoCountAll = alter Stand
+      return nasLikeCheck(out, T, L, B, { epicDayUtc: true, expiresH: out.expirationHours || 24, filledOnly: !E.ftmoCountAll });
     },
     // d_ilikebigbots: Code Strategie DE40 -> Signal DE (signal && limitLevel>0) -> DAX Combined Check v3
     DE40(i, T, L, B) {
-      const [m5, h1, m15] = views(i, [['M5', 200, true], ['H1', 150, true], ['M15', 200, true]]);
+      const [m5v, h1, m15] = views(i, [['M5', 200, true], ['H1', 150, true], ['M15', 200, true]]);
+      const m5 = E.de40AskShift ? de40LiveM5(i, 200) : m5v;
       const items = [{ json: { prices: m5 } }, { json: { accounts: [{ balance: { balance: E.totalBalance } }] } }, { json: { prices: h1 } }, { json: { prices: m15 } }];
       const out = callStrategy(i, items);
       if (out.signal === 'NONE' || !(Number(out.limitLevel) > 0)) return;
@@ -257,7 +299,7 @@ export function runLive({ bars, days, variant, engine = {}, range = {}, params =
     },
   };
 
-  function nasLikeCheck(out, T, L, B, { expiresH }) {
+  function nasLikeCheck(out, T, L, B, { expiresH, filledOnly = false }) {
     const open = myOpenOrders();
     const price = Number(out.currentPrice) || 0;
     let invalid = false;
@@ -278,7 +320,19 @@ export function runLive({ bars, days, variant, engine = {}, range = {}, params =
     const lim = Number(out.limitLevel), st = Number(out.stopLevel), tp = Number(out.profitLevel);
     const dup = own.find((o) => o.placedAt >= T - 24 * H && o.direction === dir && Math.abs(o.level - lim) < 0.5 && Math.abs(o.stopLevel - st) < 0.5 && Math.abs(o.profitLevel - tp) < 0.5);
     const todayUtc = new Date(T).toISOString().slice(0, 10);
-    const count = own.filter((o) => new Date(o.placedAt).toISOString().slice(0, 10) === todayUtc).length;
+    let count;
+    if (filledOnly) {
+      // Combined Check NAS (d_ftmo): Should-Cancel markiert die Order als storniert (auch wenn danach blockiert wird);
+      // gefüllt = Order nicht mehr pending und vor Ablauf - 60 s verschwunden, nicht storniert (Auswertung zum Prüfzeitpunkt).
+      const nowMs = clock.now;
+      if (invalid && open[0]) { const c = own.find((o) => o.orderId === open[0].id); if (c) c.cancelled = true; }
+      const pendingIds = new Set(open.map((o) => o.id));
+      for (const o of own) {
+        if (o.filled || o.cancelled) continue;
+        if (!pendingIds.has(o.orderId) && nowMs < o.placedAt + (o.expHours || 24) * H - 60000) o.filled = true;
+      }
+      count = own.filter((o) => o.filled && new Date(o.placedAt).toISOString().slice(0, 10) === todayUtc).length;
+    } else count = own.filter((o) => new Date(o.placedAt).toISOString().slice(0, 10) === todayUtc).length;
     if (activeOrder) return block('Aktive Order');
     if (positions.length) return block('Aktive Position');
     if (recent) return block('Order < 30 Min');
@@ -292,9 +346,20 @@ export function runLive({ bars, days, variant, engine = {}, range = {}, params =
   // ---------------------------------------------------------------- Hauptschleife
   const famFn = family[V.family];
   if (!famFn) throw new Error('Unbekannte Familie ' + V.family);
+  // d_ftmo „News-Filter“ (seit 10.11.2026 live): ±15 Min um High-Impact USD/EUR -> Strategie läuft nicht, Pending Orders werden gelöscht.
+  // engine.newsFilter === false schaltet ab (z. B. Vergleich mit früheren Läufen).
+  const news = opts.ftmo && E.newsFilter !== false ? newsTimes({ currencies: ['USD', 'EUR'], impacts: ['high'] }) : null;
+  stats.newsBlocked = 0; stats.newsCancelled = 0;
   for (let i = 0; i < bars.length; i++) {
     const B = bars[i];
     const T = B.t;
+    // Datenlücke > 5 Tage (z. B. versiegeltes Tresor-Jahr, fehlende Daten): offene Positionen zum letzten Kurs davor schließen,
+    // Orders löschen – sonst liefe ein Trade über ein ganzes ausgeblendetes Jahr.
+    if (i > 0 && T - bars[i - 1].t > 5 * 86400000) {
+      const P = bars[i - 1];
+      for (const o of myOpenOrders()) { o.status = 'CANCELLED'; stats.cancelled++; }
+      for (const p of [...positions]) { closePos(p, P, i - 1, p.dir === 'BUY' ? P.bc : P.ac, 'DATENLUECKE'); stats.gapCloses = (stats.gapCloses || 0) + 1; }
+    }
     const L = local(T, E.cronTz);
     clock.now = T + 10000; // Lauf ~10 s nach dem 5-Min-Wechsel
     // FTMO: Freitag 20:30 Glattstellen (eigener Cron) + Tagesverlust-Schutz
@@ -316,7 +381,10 @@ export function runLive({ bars, days, variant, engine = {}, range = {}, params =
       // Außerhalb der Handelszeit kehrt der Code sofort ohne Zustandsänderung zurück -> Aufruf sparen
       const act = ACTIVE[V.family];
       const hm = act.tz === 'UTC' ? new Date(T).toISOString().slice(11, 16) : L.hm;
-      if (hm >= act.from && hm <= act.to) famFn(i, T, L, B);
+      if (news && inNewsWindow(clock.now, news, 15)) {
+        stats.newsBlocked++;
+        for (const o of myOpenOrders()) { o.status = 'CANCELLED'; o.cancelT = T; stats.cancelled++; stats.newsCancelled++; const c = own.find((x) => x.orderId === o.id); if (c) c.cancelled = true; }
+      } else if (hm >= act.from && hm <= act.to) famFn(i, T, L, B);
     }
     processBar(B, i);
   }

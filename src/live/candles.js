@@ -32,7 +32,9 @@ export class TimeframeSeries {
   }
 
   /** Kerzen für einen Lauf zum Zeitpunkt bars[i].t: n Stück, letzte = laufende (running=true) */
-  view(i, n, running = true) {
+  view(i, n, running = true, noTick = false) {
+    // noTick: Capital hat zum Abrufzeitpunkt noch keinen Kurs der neuen M5-Kerze -> keine laufende M5-Kerze;
+    // höhere Zeitebenen: laufende Kerze nur aus den schon abgeschlossenen M5 der Periode (ohne erste Kurs von T).
     const T = this.bars[i].t;
     const P = Math.floor(T / this.step) * this.step;
     let done;
@@ -44,6 +46,16 @@ export class TimeframeSeries {
       done = this.agg.slice(Math.max(0, this.ptr - (running ? n - 1 : n)), this.ptr);
     }
     if (!running) return done;
+    if (noTick) {
+      if (this.tf === 'M5') return this.bars.slice(Math.max(0, i - n), i);
+      const part = [];
+      for (let j = i - 1; j >= 0 && this.bars[j].t >= P; j--) part.unshift(this.bars[j]);
+      if (!part.length) return this.agg.slice(Math.max(0, this.ptr - n), this.ptr);
+      const r = { t: P, bo: part[0].bo, ao: part[0].ao, bc: part.at(-1).bc, ac: part.at(-1).ac, running: true,
+        bh: Math.max(...part.map((x) => x.bh)), bl: Math.min(...part.map((x) => x.bl)), ah: Math.max(...part.map((x) => x.ah)), al: Math.min(...part.map((x) => x.al)),
+        vol: part.reduce((s2, x) => s2 + (x.vol || 0), 0) };
+      return [...done, r];
+    }
     // laufende Kerze: abgeschlossene M5 dieser Periode + erster Kurs von T
     const tick = this.bars[i];
     const r = { t: P, bo: tick.bo, bh: tick.bo, bl: tick.bo, bc: tick.bo, ao: tick.ao, ah: tick.ao, al: tick.ao, ac: tick.ao, vol: 1, running: true };

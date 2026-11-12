@@ -2,3 +2,10 @@ node_modules/
 out/
 data/raw/*
 !data/raw/.gitkeep
+data/dukascopy/
+data/news/ff_raw/
+data/indicators/
+
+# Cloud-Review
+.DS_Store
+cloud-data/daten.tar.zst

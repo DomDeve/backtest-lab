@@ -1,0 +1,371 @@
+{
+ "_hinweis": "Gemessener Median-Spread je UTC-Stunde (gemeinsame M5-Kerzen 2024\u201326, tools/dukascopy_compare.py). diff = Capital \u2212 Dukascopy in Kurs-Einheiten. Nur f\u00fcr die Kosten-Empfindlichkeit --spread capital (Kursdaten bleiben echt).",
+ "epics": {
+  "DE40": {
+   "00": {
+    "capital": 2.0,
+    "dukascopy": 3.857,
+    "diff": -1.857
+   },
+   "01": {
+    "capital": 2.0,
+    "dukascopy": 3.835,
+    "diff": -1.835
+   },
+   "02": {
+    "capital": 2.0,
+    "dukascopy": 3.835,
+    "diff": -1.835
+   },
+   "03": {
+    "capital": 2.0,
+    "dukascopy": 3.835,
+    "diff": -1.835
+   },
+   "04": {
+    "capital": 2.0,
+    "dukascopy": 3.835,
+    "diff": -1.835
+   },
+   "05": {
+    "capital": 2.0,
+    "dukascopy": 3.835,
+    "diff": -1.835
+   },
+   "06": {
+    "capital": 2.0,
+    "dukascopy": 2.657,
+    "diff": -0.657
+   },
+   "07": {
+    "capital": 1.5,
+    "dukascopy": 1.457,
+    "diff": 0.043
+   },
+   "08": {
+    "capital": 1.5,
+    "dukascopy": 1.424,
+    "diff": 0.076
+   },
+   "09": {
+    "capital": 1.5,
+    "dukascopy": 1.424,
+    "diff": 0.076
+   },
+   "10": {
+    "capital": 1.5,
+    "dukascopy": 1.424,
+    "diff": 0.076
+   },
+   "11": {
+    "capital": 1.5,
+    "dukascopy": 1.424,
+    "diff": 0.076
+   },
+   "12": {
+    "capital": 1.5,
+    "dukascopy": 1.424,
+    "diff": 0.076
+   },
+   "13": {
+    "capital": 1.5,
+    "dukascopy": 1.424,
+    "diff": 0.076
+   },
+   "14": {
+    "capital": 1.5,
+    "dukascopy": 1.424,
+    "diff": 0.076
+   },
+   "15": {
+    "capital": 1.5,
+    "dukascopy": 1.446,
+    "diff": 0.054
+   },
+   "16": {
+    "capital": 1.5,
+    "dukascopy": 2.546,
+    "diff": -1.046
+   },
+   "17": {
+    "capital": 1.5,
+    "dukascopy": 2.624,
+    "diff": -1.124
+   },
+   "18": {
+    "capital": 1.5,
+    "dukascopy": 2.624,
+    "diff": -1.124
+   },
+   "19": {
+    "capital": 1.5,
+    "dukascopy": 2.635,
+    "diff": -1.135
+   },
+   "20": {
+    "capital": 1.5,
+    "dukascopy": 2.646,
+    "diff": -1.146
+   },
+   "21": {
+    "capital": 8.0,
+    "dukascopy": 7.435,
+    "diff": 0.565
+   },
+   "22": {
+    "capital": 8.0,
+    "dukascopy": 7.424,
+    "diff": 0.576
+   },
+   "23": {
+    "capital": 8.0,
+    "dukascopy": 7.424,
+    "diff": 0.576
+   }
+  },
+  "US100": {
+   "00": {
+    "capital": 1.8,
+    "dukascopy": 3.372,
+    "diff": -1.572
+   },
+   "01": {
+    "capital": 1.8,
+    "dukascopy": 3.362,
+    "diff": -1.562
+   },
+   "02": {
+    "capital": 1.8,
+    "dukascopy": 3.291,
+    "diff": -1.491
+   },
+   "03": {
+    "capital": 1.8,
+    "dukascopy": 3.373,
+    "diff": -1.573
+   },
+   "04": {
+    "capital": 1.8,
+    "dukascopy": 3.372,
+    "diff": -1.572
+   },
+   "05": {
+    "capital": 1.8,
+    "dukascopy": 3.301,
+    "diff": -1.501
+   },
+   "06": {
+    "capital": 1.8,
+    "dukascopy": 3.301,
+    "diff": -1.501
+   },
+   "07": {
+    "capital": 1.8,
+    "dukascopy": 3.372,
+    "diff": -1.572
+   },
+   "08": {
+    "capital": 1.8,
+    "dukascopy": 3.291,
+    "diff": -1.491
+   },
+   "09": {
+    "capital": 1.8,
+    "dukascopy": 3.291,
+    "diff": -1.491
+   },
+   "10": {
+    "capital": 1.8,
+    "dukascopy": 3.291,
+    "diff": -1.491
+   },
+   "11": {
+    "capital": 1.8,
+    "dukascopy": 3.291,
+    "diff": -1.491
+   },
+   "12": {
+    "capital": 1.8,
+    "dukascopy": 3.372,
+    "diff": -1.572
+   },
+   "13": {
+    "capital": 1.8,
+    "dukascopy": 1.481,
+    "diff": 0.319
+   },
+   "14": {
+    "capital": 1.8,
+    "dukascopy": 1.394,
+    "diff": 0.406
+   },
+   "15": {
+    "capital": 1.8,
+    "dukascopy": 1.291,
+    "diff": 0.509
+   },
+   "16": {
+    "capital": 1.8,
+    "dukascopy": 1.291,
+    "diff": 0.509
+   },
+   "17": {
+    "capital": 1.8,
+    "dukascopy": 1.293,
+    "diff": 0.507
+   },
+   "18": {
+    "capital": 1.8,
+    "dukascopy": 1.281,
+    "diff": 0.519
+   },
+   "19": {
+    "capital": 1.8,
+    "dukascopy": 1.293,
+    "diff": 0.507
+   },
+   "20": {
+    "capital": 1.8,
+    "dukascopy": 1.408,
+    "diff": 0.392
+   },
+   "21": {
+    "capital": 1.8,
+    "dukascopy": 1.394,
+    "diff": 0.406
+   },
+   "22": {
+    "capital": 1.8,
+    "dukascopy": 3.29,
+    "diff": -1.49
+   },
+   "23": {
+    "capital": 1.8,
+    "dukascopy": 3.373,
+    "diff": -1.573
+   }
+  },
+  "EURUSD": {
+   "00": {
+    "capital": 6e-05,
+    "dukascopy": 4e-05,
+    "diff": 2e-05
+   },
+   "01": {
+    "capital": 6e-05,
+    "dukascopy": 4e-05,
+    "diff": 2e-05
+   },
+   "02": {
+    "capital": 6e-05,
+    "dukascopy": 4e-05,
+    "diff": 2e-05
+   },
+   "03": {
+    "capital": 6e-05,
+    "dukascopy": 4e-05,
+    "diff": 2e-05
+   },
+   "04": {
+    "capital": 6e-05,
+    "dukascopy": 4e-05,
+    "diff": 2e-05
+   },
+   "05": {
+    "capital": 6e-05,
+    "dukascopy": 4e-05,
+    "diff": 2e-05
+   },
+   "06": {
+    "capital": 6e-05,
+    "dukascopy": 3e-05,
+    "diff": 3e-05
+   },
+   "07": {
+    "capital": 6e-05,
+    "dukascopy": 3e-05,
+    "diff": 3e-05
+   },
+   "08": {
+    "capital": 6e-05,
+    "dukascopy": 3e-05,
+    "diff": 3e-05
+   },
+   "09": {
+    "capital": 6e-05,
+    "dukascopy": 3e-05,
+    "diff": 3e-05
+   },
+   "10": {
+    "capital": 6e-05,
+    "dukascopy": 3e-05,
+    "diff": 3e-05
+   },
+   "11": {
+    "capital": 6e-05,
+    "dukascopy": 3e-05,
+    "diff": 3e-05
+   },
+   "12": {
+    "capital": 6e-05,
+    "dukascopy": 3e-05,
+    "diff": 3e-05
+   },
+   "13": {
+    "capital": 6e-05,
+    "dukascopy": 3e-05,
+    "diff": 3e-05
+   },
+   "14": {
+    "capital": 6e-05,
+    "dukascopy": 3e-05,
+    "diff": 3e-05
+   },
+   "15": {
+    "capital": 6e-05,
+    "dukascopy": 3e-05,
+    "diff": 3e-05
+   },
+   "16": {
+    "capital": 6e-05,
+    "dukascopy": 3e-05,
+    "diff": 3e-05
+   },
+   "17": {
+    "capital": 6e-05,
+    "dukascopy": 3e-05,
+    "diff": 3e-05
+   },
+   "18": {
+    "capital": 6e-05,
+    "dukascopy": 3e-05,
+    "diff": 3e-05
+   },
+   "19": {
+    "capital": 6e-05,
+    "dukascopy": 3e-05,
+    "diff": 3e-05
+   },
+   "20": {
+    "capital": 6e-05,
+    "dukascopy": 4e-05,
+    "diff": 2e-05
+   },
+   "21": {
+    "capital": 0.0003,
+    "dukascopy": 0.00019,
+    "diff": 0.00011
+   },
+   "22": {
+    "capital": 7e-05,
+    "dukascopy": 7e-05,
+    "diff": 0.0
+   },
+   "23": {
+    "capital": 6e-05,
+    "dukascopy": 4e-05,
+    "diff": 2e-05
+   }
+  }
+ }
+}

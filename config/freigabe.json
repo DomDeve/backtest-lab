@@ -1,0 +1,48 @@
+{
+ "_zweck": "Freigabe-Prüfung vor jedem Livegang (tools/freigabe.py). Kriterien fest, vorher festgelegt. Plateau-Pflicht: jede getunte Größe braucht Nachbarwerte (je eine Stufe darunter/darüber) als echte Läufe. Tresor/Forward-Test werden hier nur eingetragen, nicht berechnet. Auswahl (K2): Suchraum je Kandidat – 'auswahl' = Name in auswahl.json (Standard: Markt). Legacy-Bots: 'legacy' = beste der 19 Live-Bots.",
+ "kriterien": {
+  "coinflip_p": 0.05,
+  "auswahl_p": 0.05,
+  "plateau_min_anteil": 0.5,
+  "tage_t": 2.0,
+  "tag_schlechtester_pct": -4.0
+ },
+ "quellen": {
+  "coinflip": "out/coinflip/ergebnis.json",
+  "auswahl": "out/coinflip/auswahl.json",
+  "tage": "out/live-kosten/tagesrendite.json"
+ },
+ "kandidaten": [
+  {
+   "id": "ftmo-slmax80",
+   "markt": "FTMO (US100)",
+   "plateau": {
+    "groesse": "SL_MAX",
+    "run": "out/live",
+    "nachbarn": [
+     "ftmo-slmax60",
+     "ftmo-slmax100",
+     "ftmo-slmax120"
+    ]
+   },
+   "tresor": null,
+   "forward": null
+  },
+  {
+   "id": "ftmo-basis",
+   "markt": "FTMO (US100)",
+   "plateau": null,
+   "tresor": null,
+   "forward": null,
+   "auswahl": "legacy"
+  },
+  {
+   "id": "nas-f618atr",
+   "markt": "US100",
+   "plateau": null,
+   "tresor": null,
+   "forward": null,
+   "auswahl": "legacy"
+  }
+ ]
+}

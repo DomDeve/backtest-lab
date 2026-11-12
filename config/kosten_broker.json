@@ -1,0 +1,92 @@
+{
+ "_hinweis": "Broker-Kosten für die Live-Code-Engine (src/core/costs.js). Spread steckt schon in den Kursen (Kauf Ask / Verkauf Bid). Hier: Kommission, Swap, Slippage bei Stop-Ausstiegen. Stand 12.11.2026, Quellen je Profil. Swap-Sätze = heutige Sätze (hängen am Leitzins; 2024–26 lag der ähnlich hoch).",
+ "profile": {
+  "capital": {
+   "_quelle": "capital.com/en-eu Marktseiten (12.11.2026): Commission 0 %, Overnight funding in % vom vollen Positionswert, Buchung 22:00 UTC (= 17:00 New York). Indizes: jede Kalendernacht inkl. Sa/So; FX seit 11.05.2026 Mo–Fr mit Dreifach-Buchung Mittwoch (help.capital.com, 'What is the overnight funding fee?'). Slippage SL-Ausstieg gemessen aus d_tradelog (23.10.–05.11.2026): US100 Ø 1,07 Pkt (n 53), DE40 Ø 0,60 Pkt (n 24), EURUSD 0 (n 58). Währungsumrechnung (0,7 % Aufschlag) nicht berücksichtigt. Slippage in Punkten gilt für das Kursniveau der gemessenen Trades (Median-Einstieg = slippage_ref_price) und wird mit Einstiegskurs/Referenzkurs skaliert.",
+   "rollover_tz": "America/New_York",
+   "rollover_hour": 17,
+   "epics": {
+    "US100": {
+     "contract_size": 1,
+     "commission_per_lot_rt": 0,
+     "swap_mode": "pct",
+     "swap_long": -0.02221,
+     "swap_short": -2e-05,
+     "weekend_daily": true,
+     "triple_weekday": null,
+     "slippage_stop_pts": 1.07,
+     "slippage_market_pts": 0,
+     "slippage_ref_price": 28968
+    },
+    "DE40": {
+     "contract_size": 1,
+     "commission_per_lot_rt": 0,
+     "swap_mode": "pct",
+     "swap_long": -0.01802,
+     "swap_short": -0.0042,
+     "weekend_daily": true,
+     "triple_weekday": null,
+     "slippage_stop_pts": 0.6,
+     "slippage_market_pts": 0,
+     "slippage_ref_price": 25937.6
+    },
+    "EURUSD": {
+     "contract_size": 100000,
+     "commission_per_lot_rt": 0,
+     "swap_mode": "pct",
+     "swap_long": -0.00802,
+     "swap_short": -0.0002,
+     "weekend_daily": false,
+     "triple_weekday": 3,
+     "slippage_stop_pts": 0,
+     "slippage_market_pts": 0
+    }
+   }
+  },
+  "ftmo": {
+   "_quelle": "ftmo.com/en/symbols (09./12.11.2026): Swap in Punkten je Lot und Nacht; Indizes .cash mit 2 Nachkommastellen -> Punkt 0,01, EURUSD 5 Stellen -> 0,00001; Kommission Indizes 0 %. Forex 2,50 USD je Lot und Seite = 5 USD Round-Turn (FTMO Trading Update 25.09.2025). Dreifach-Swap Mittwoch->Donnerstag für die meisten Instrumente (FTMO-Blog 'What is a swap'). Rollover 'um Mitternacht' Serverzeit (GMT+2/+3 = Europe/Athens). Slippage bei FTMO nicht gemessen (keine FTMO-Live-Trades im Export) -> 0. Punkte-Swap der Indizes gilt für das Kursniveau am 12.11.2026 (US100.cash 28 426,63, GER40.cash 26 750,44) und wird mit Einstiegskurs/Referenzkurs skaliert.",
+   "rollover_tz": "Europe/Athens",
+   "rollover_hour": 0,
+   "epics": {
+    "US100": {
+     "contract_size": 1,
+     "commission_per_lot_rt": 0,
+     "swap_mode": "points",
+     "swap_long": -655.88,
+     "swap_short": 20.69,
+     "swap_point": 0.01,
+     "weekend_daily": false,
+     "triple_weekday": 3,
+     "slippage_stop_pts": 0,
+     "slippage_market_pts": 0,
+     "swap_ref_price": 28426.63
+    },
+    "DE40": {
+     "contract_size": 1,
+     "commission_per_lot_rt": 0,
+     "swap_mode": "points",
+     "swap_long": -513.99,
+     "swap_short": -51.87,
+     "swap_point": 0.01,
+     "weekend_daily": false,
+     "triple_weekday": 3,
+     "slippage_stop_pts": 0,
+     "slippage_market_pts": 0,
+     "swap_ref_price": 26750.44
+    },
+    "EURUSD": {
+     "contract_size": 100000,
+     "commission_per_lot_rt": 5,
+     "swap_mode": "points",
+     "swap_long": -9.5,
+     "swap_short": 0.36,
+     "swap_point": 1e-05,
+     "weekend_daily": false,
+     "triple_weekday": 3,
+     "slippage_stop_pts": 0,
+     "slippage_market_pts": 0
+    }
+   }
+  }
+ }
+}

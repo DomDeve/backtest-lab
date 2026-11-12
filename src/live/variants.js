@@ -320,6 +320,24 @@ export function deFilterPatch(code, { adxMin = null, noMonday = false, lvnExcl =
   return code;
 }
 
+// Strategie-Review FTMO (strategy-review/, ab 12.11.2026): Punkt-Schwellen proportional zum Kurs.
+// RANGE_MIN, MA_DIST_MIN, SL_BUF, SL_MAX, SL_MIN gelten bei Kurs = ref unverändert, sonst × Kurs/ref (M15-Schluss).
+export function nasPxScalePatch(code, { ref }) {
+  code = replaceExact(code, "let signal = 'NONE', fibLevel = 0", `const __px = currentClose / ${ref};\n  let signal = 'NONE', fibLevel = 0`);
+  code = replaceExact(code, 'range > RANGE_MIN', 'range > RANGE_MIN * __px', 2);
+  code = replaceExact(code, '(fibLevel - sma200) > MA_DIST_MIN', '(fibLevel - sma200) > MA_DIST_MIN * __px');
+  code = replaceExact(code, '(sma200 - fibLevel) > MA_DIST_MIN', '(sma200 - fibLevel) > MA_DIST_MIN * __px');
+  code = replaceExact(code, 'relevantLow.price - SL_BUF', 'relevantLow.price - SL_BUF * __px');
+  code = replaceExact(code, 'relevantHigh.price + SL_BUF', 'relevantHigh.price + SL_BUF * __px');
+  code = replaceExact(code, 'if (slDistance > SL_MAX)', 'if (slDistance > SL_MAX * __px)');
+  return replaceExact(code, 'if (slDistance < SL_MIN)', 'if (slDistance < SL_MIN * __px)');
+}
+// Review: keine Signale 15:00–15:59 Berlin (US-Eröffnung) im FTMO-Code (Fundstelle = Wochenend-Zeile mit botId).
+export function ftmoHourPatch(code, { hours = [15] } = {}) {
+  const at = "if (utcDay === 0 || utcDay === 6) return [{json:{signal:'NONE',error:'Wochenende',botId:BOT_ID}}];";
+  return replaceExact(code, at, at + `\n  { const __bh = Number(new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/Berlin', hour: '2-digit', hourCycle: 'h23' }).format(now));
+    if (${JSON.stringify(hours)}.includes(__bh)) return [{json:{signal:'NONE',error:'Filter: keine Signale Berlin-Stunde ${hours.join('+')}',botId:BOT_ID}}]; }`);
+}
 // ---------------------------------------------------------------- Familien-Defaults
 const NAS_FEAT = ['rr', 'h4Trend', 'trend', 'atrPct'];
 const DE_FEAT = ['confluenceScore', 'adx', 'rr', 'lvnSource', 'phase', 'entryLVN.depth', 'h1Trend'];
@@ -468,6 +486,12 @@ export function buildCatalog() {
         base: bid, desc: `${b.name}, Swing-Erkennung: ${label}`, code: nasSwingPatch(b.code, cfg, lb) });
     }
   }
+  // ---- Strategie-Review FTMO (strategy-review/experiments.jsonl)
+  const RV = 'FTMO Strategie-Review';
+  for (const ref of [16000, 20000, 25000]) V.push({ ...ftmo(`ftmo-rv-px${ref / 1000}k`, `Review: Punkt-Schwellen × Kurs/${ref}`, `RANGE_MIN, MA_DIST_MIN, SL_BUF, SL_MAX, SL_MIN proportional zum Kurs (Referenz ${ref})`, (c) => nasPxScalePatch(c, { ref })), group: RV });
+  V.push({ ...ftmo('ftmo-rv-h15', 'Review: ohne 15 Uhr Berlin', 'keine Signale 15:00–15:59 Berlin (US-Eröffnung)', (c) => ftmoHourPatch(c, { hours: [15] })), group: RV });
+  V.push({ ...ftmo('ftmo-rv-h1415', 'Review: ohne 14+15 Uhr Berlin', 'Plateau-Nachbar: keine Signale 14:00–15:59 Berlin', (c) => ftmoHourPatch(c, { hours: [14, 15] })), group: RV });
+  V.push({ ...ftmo('ftmo-rv-h1516', 'Review: ohne 15+16 Uhr Berlin', 'Plateau-Nachbar: keine Signale 15:00–16:59 Berlin', (c) => ftmoHourPatch(c, { hours: [15, 16] })), group: RV });
   return V;
 }
 

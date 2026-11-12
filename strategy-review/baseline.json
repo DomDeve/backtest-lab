@@ -1,0 +1,99 @@
+{
+ "stand": "2026-11-12",
+ "konto": "FTMO 2-Step 100k (d_ftmo)",
+ "n8n": {
+  "workflow": "d_ftmo",
+  "id": "X9pCBdPkNZwkepoQ",
+  "versionId": "31f089ff-561c-4089-8cec-6025e556d3ba",
+  "aktualisiert": "2026-11-10T06:35:16Z",
+  "version_name": "Tageslimit zählt nur gefüllte Trades (NAS + DAX)"
+ },
+ "bots": [
+  {
+   "bot": "NAS F618ATR FTMO",
+   "variant_id": "ftmo-basis",
+   "code_node": "Code Strategie NAS F618ATR",
+   "lab_datei": "strategies-live/ftmo/NAS_F618ATR_FTMO.js",
+   "paritaet": "Code-Node identisch; Combined Check (Tageslimit nur gefüllte) seit 12.11.2026 in runner.js nachgebildet",
+   "aktiv": true,
+   "kennzahlen": {
+    "capital_2024_2026": {
+     "trades": 427,
+     "avg_r": 0.1516,
+     "trades_monat": 12.55,
+     "r_monat": 1.9,
+     "t_tage": 1.87,
+     "schlechtester_tag_pct": -1.81,
+     "max_dd_pct": -13.98,
+     "haelften": [
+      0.2064,
+      0.1127
+     ],
+     "drittel": [
+      0.1432,
+      0.1685,
+      0.1413
+     ],
+     "ftmo_bootstrap": {
+      "p_phase1": 0.928,
+      "p_beide": 0.878,
+      "median_tage_beide": 261
+     },
+     "funded": {
+      "r_month_p10": -2.77,
+      "r_month_p50": 0,
+      "r_month_p90": 10.62,
+      "p_violation_month": 0.0014,
+      "starts": 720
+     },
+     "zeitraum": [
+      "2024-01-02",
+      "2026-11-03"
+     ]
+    },
+    "dukascopy_entwicklung": {
+     "trades": 877,
+     "avg_r": 0.0484,
+     "trades_monat": 4.94,
+     "r_monat": 0.24,
+     "t_tage": 0.86,
+     "schlechtester_tag_pct": -4.3,
+     "max_dd_pct": -14.71,
+     "haelften": [
+      -0.0472,
+      0.0557
+     ],
+     "drittel": [
+      -0.1554,
+      0.0568,
+      0.0508
+     ],
+     "ftmo_bootstrap": {
+      "p_phase1": 0.672,
+      "p_beide": 0.541,
+      "median_tage_beide": 590
+     },
+     "funded": {
+      "r_month_p10": -2,
+      "r_month_p50": 0,
+      "r_month_p90": 3.48,
+      "p_violation_month": 0.0008,
+      "starts": 3841
+     },
+     "zeitraum": [
+      "2012-01-19",
+      "2026-11-06"
+     ]
+    }
+   }
+  },
+  {
+   "bot": "DE40 Confluence 3",
+   "code_node": "Code Strategie DE40 Confluence 3",
+   "variant_id": null,
+   "aktiv": false,
+   "paritaet": "läuft in n8n (d_ftmo), im Lab nicht vorhanden -> laut Review-Regel nicht aktiv; FTMO-Kontosimulation ohne diesen Bot unvollständig"
+  }
+ ],
+ "hinweis": "Kennzahlen netto (Kosten src/core/costs.js). Dukascopy = Entwicklungsjahre ohne Tresor (2014/2017/2020/2023)."
+}

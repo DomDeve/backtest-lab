@@ -3,14 +3,20 @@
   "version": "0.1.0",
   "description": "Backtest- und Analyse-Engine für die n8n-Trading-Bots (Capital.com / FTMO). Gleiche JS-Logik wie live.",
   "type": "module",
-  "bin": { "bt": "bin/bt.js" },
+  "bin": {
+    "bt": "bin/bt.js"
+  },
   "scripts": {
     "test": "node --test test/*.test.js",
     "live": "node bin/live.js",
     "audit": "node tools/audit-data.js data/raw",
-    "demo": "node tools/gen-synthetic.js --out data/raw/synthetic-de40.json --days 500 && node bin/bt.js run --config config/de40-orb60.json --data data/raw/synthetic-de40.json"
+    "demo": "node tools/gen-synthetic.js --out data/raw/synthetic-de40.json --days 500 && node bin/bt.js run --config config/de40-orb60.json --data data/raw/synthetic-de40.json",
+    "test:py": "python3 -m unittest discover -s test -p 'test_*.py'",
+    "analyse": "python3 tools/tradelog.py && python3 tools/modul_a.py && python3 tools/modul_a_report.py"
   },
-  "engines": { "node": ">=20" },
+  "engines": {
+    "node": ">=20"
+  },
   "dependencies": {
     "adm-zip": "^0.5.16"
   }

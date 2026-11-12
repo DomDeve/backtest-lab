@@ -1,0 +1,146 @@
+{
+ "_hinweis": "Stammdaten je Epic (bin/k2k5.js). FTMO-Symbole laut FTMO-Instrumentliste (Annahme, nicht über API geprüft).",
+ "created": "2026-11-07",
+ "epics": {
+  "US100": {
+   "asset_class": "index",
+   "reference_exchange": "Nasdaq",
+   "tz": "America/New_York",
+   "sessions": {
+    "cash": {
+     "open_local": "09:30",
+     "close_local": "16:00",
+     "tz": "America/New_York"
+    }
+   },
+   "ftmo_symbol": "US100.cash",
+   "point_value_per_lot": 1,
+   "min_size": null,
+   "swap_pts_per_night": 0,
+   "commission_per_lot": 0,
+   "slippage_assumed": 0.5,
+   "spread_median_by_hour_utc": {
+    "10": 1.8,
+    "11": 1.8,
+    "12": 1.8,
+    "13": 1.8,
+    "14": 1.8,
+    "15": 1.8,
+    "16": 1.8,
+    "17": 1.8,
+    "18": 1.8,
+    "19": 1.8,
+    "20": 1.8,
+    "21": 4,
+    "22": 1.8,
+    "23": 1.8,
+    "00": 1.8,
+    "01": 1.8,
+    "02": 1.8,
+    "03": 1.8,
+    "04": 1.8,
+    "05": 1.8,
+    "06": 1.8,
+    "07": 1.8,
+    "08": 1.8,
+    "09": 1.8
+   },
+   "source": "Kursdaten (Spread), config/kosten.json (Swap/Kommission = Annahme 0), Min-Size/Punktwert über API noch offen"
+  },
+  "DE40": {
+   "asset_class": "index",
+   "reference_exchange": "Xetra",
+   "tz": "Europe/Berlin",
+   "sessions": {
+    "cash": {
+     "open_local": "09:00",
+     "close_local": "17:30",
+     "tz": "Europe/Berlin"
+    }
+   },
+   "ftmo_symbol": "GER40.cash",
+   "point_value_per_lot": 1,
+   "min_size": null,
+   "swap_pts_per_night": 0,
+   "commission_per_lot": 0,
+   "slippage_assumed": 0.5,
+   "spread_median_by_hour_utc": {
+    "10": 1.5,
+    "11": 1.5,
+    "12": 1.5,
+    "13": 1.5,
+    "14": 1.5,
+    "15": 1.5,
+    "16": 1.5,
+    "17": 1.5,
+    "18": 1.5,
+    "19": 1.5,
+    "20": 8,
+    "21": 8,
+    "22": 8,
+    "23": 8,
+    "00": 2,
+    "01": 2,
+    "02": 2,
+    "03": 2,
+    "04": 2,
+    "05": 2,
+    "06": 2,
+    "07": 1.5,
+    "08": 1.5,
+    "09": 1.5
+   },
+   "source": "Kursdaten (Spread), config/kosten.json (Swap/Kommission = Annahme 0), Min-Size/Punktwert über API noch offen"
+  },
+  "EURUSD": {
+   "asset_class": "fx",
+   "reference_exchange": "Interbankenmarkt (London / New York)",
+   "tz": "Europe/London",
+   "sessions": {
+    "london": {
+     "open_local": "07:00",
+     "close_local": "16:00",
+     "tz": "Europe/London"
+    },
+    "newyork": {
+     "open_local": "08:30",
+     "close_local": "16:00",
+     "tz": "America/New_York"
+    }
+   },
+   "ftmo_symbol": "EURUSD",
+   "point_value_per_lot": 100000,
+   "min_size": null,
+   "swap_pts_per_night": 0,
+   "commission_per_lot": 0,
+   "slippage_assumed": 0.00001,
+   "spread_median_by_hour_utc": {
+    "10": 0.00006,
+    "11": 0.00006,
+    "12": 0.00006,
+    "13": 0.00006,
+    "14": 0.00006,
+    "15": 0.00006,
+    "16": 0.00006,
+    "17": 0.00006,
+    "18": 0.00006,
+    "19": 0.00006,
+    "20": 0.00006,
+    "21": 0.0003,
+    "22": 0.00007,
+    "23": 0.00006,
+    "00": 0.00006,
+    "01": 0.00006,
+    "02": 0.00006,
+    "03": 0.00006,
+    "04": 0.00006,
+    "05": 0.00006,
+    "06": 0.00006,
+    "07": 0.00006,
+    "08": 0.00006,
+    "09": 0.00006
+   },
+   "source": "Kursdaten (Spread), config/kosten.json (Swap/Kommission = Annahme 0), Min-Size/Punktwert über API noch offen"
+  }
+ }
+}

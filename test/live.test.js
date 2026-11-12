@@ -163,3 +163,107 @@ test('NAS Chop-Filter: MA-Regel und Qualitätsfilter als Code-Patch, Basis unver
   assert.doesNotMatch(cat.find((x) => x.id === 'nas-fib61-lb3').code, /USE_MA_DISTANCE_FILTER\s*=\s*true/);
   assert.match(cat.find((x) => x.id === 'nas-fib61-lb3').code, /MA_DIST_MIN\s*=\s*30;/);
 });
+
+// ---------------------------------------------------------------- Phase 0 (06.11.2026): Kerzen wie vom Broker geliefert
+import { TimeframeSeries as TFS06 } from '../src/live/candles.js';
+import { cleanBars as clean06 } from '../src/data/clean.js';
+
+const mk06 = (iso, mid, spread = 2) => ({ t: Date.parse(iso), bo: mid, bh: mid + 1, bl: mid - 1, bc: mid, ao: mid + spread, ah: mid + 1 + spread, al: mid - 1 + spread, ac: mid + spread, vol: 10 });
+
+test('cleanBars asDelivered: Sonntagabend-Kerzen bleiben in der Historie, sind aber kein Handelstag', () => {
+  // So 25.10.2026 22:05 Berlin (21:05 UTC) = Wochenöffnung, Mo 26.10. 30 Kerzen
+  const raw = [mk06('2026-10-25T21:05:00Z', 100), mk06('2026-10-25T21:10:00Z', 101)];
+  for (let k = 0; k < 30; k++) raw.push(mk06(new Date(Date.parse('2026-10-26T08:00:00Z') + k * 300000).toISOString(), 102 + k));
+  raw.push({ ...mk06('2026-10-26T10:30:00Z', 200), ao: 199.5, ac: 199.5 }); // gekreuzt (Ask < Bid)
+  const std = clean06(raw, { session: { from: '09:00', to: '11:00' } });
+  const del = clean06(raw, { session: { from: '09:00', to: '11:00' }, asDelivered: true });
+  assert.equal(std.bars.some((b) => b.date === '2026-10-25'), false);
+  assert.equal(del.bars.filter((b) => b.date === '2026-10-25').length, 2);
+  assert.deepEqual(del.days.map((d) => d.date), ['2026-10-26']);
+  const crossed = del.bars.find((b) => b.t === Date.parse('2026-10-26T10:30:00Z'));
+  assert.equal(crossed.ao, 199.5); // unverändert, wie geliefert
+});
+
+test('TimeframeSeries.view noTick: keine laufende M5-Kerze, M15 nur aus abgeschlossenen M5', () => {
+  const bars = [];
+  for (let k = 0; k < 12; k++) bars.push(mk06(new Date(Date.parse('2026-10-27T08:00:00Z') + k * 300000).toISOString(), 100 + k));
+  const i = 7; // Lauf um 08:35 UTC (bars[7] = neue Kerze)
+  const m5 = new TFS06(bars, 'M5');
+  const withTick = m5.view(i, 4, true), noTick = m5.view(i, 4, true, true);
+  assert.equal(withTick.at(-1).running, true);
+  assert.equal(noTick.length, 4);
+  assert.equal(noTick.at(-1).t, bars[6].t); // letzte = zuletzt abgeschlossene
+  const m15 = new TFS06(bars, 'M15');
+  const r = m15.view(i, 3, true, true).at(-1); // laufende M15 (08:30) = nur die abgeschlossene 08:30-M5
+  assert.equal(r.t, Date.parse('2026-10-27T08:30:00Z'));
+  assert.equal(r.bc, bars[6].bc);
+  const atBoundary = new TFS06(bars, 'M15').view(9, 3, true, true); // 08:45 = Periodenbeginn -> keine laufende M15
+  assert.equal(atBoundary.at(-1).t, Date.parse('2026-10-27T08:30:00Z'));
+  assert.equal(atBoundary.at(-1).running, undefined);
+});
+
+// ---------------------------------------------------------------- Session-Tabelle (config/sessions.yaml), 07.11.2026
+import { loadSessions, sessionUtc, sessionHmIn, isTradingDay, parseYaml, cleanSession } from '../src/core/sessions.js';
+
+test('Sessions: NY-Eröffnung in Berlin 14:30 in den DST-Sonderwochen (März / Ende Okt.–Anfang Nov.), sonst 15:30', () => {
+  for (const d of ['2025-03-10', '2025-03-28', '2026-03-09', '2026-03-27', '2025-10-27', '2025-10-31', '2026-10-26', '2026-10-30']) assert.equal(sessionHmIn('US100', d), '14:30', d);
+  for (const d of ['2025-03-06', '2025-03-31', '2026-03-31', '2026-10-23', '2025-11-03', '2026-11-02', '2026-07-15', '2026-01-15']) assert.equal(sessionHmIn('US100', d), '15:30', d);
+  assert.equal(new Date(sessionUtc('US100', '2026-03-10').open).toISOString(), '2026-03-10T13:30:00.000Z');
+  assert.equal(new Date(sessionUtc('DE40', '2026-03-10').open).toISOString(), '2026-03-10T08:00:00.000Z');
+  assert.equal(sessionHmIn('EURUSD', '2026-03-10', 'Europe/Berlin', 'open', 'newyork'), '13:30'); // 08:30 NY
+  assert.equal(sessionHmIn('EURUSD', '2026-03-10', 'Europe/Berlin', 'open', 'london'), '08:00'); // 07:00 London
+});
+
+test('Sessions: Wochenende und Börsenfeiertag erzeugen keine Session', () => {
+  assert.equal(sessionUtc('US100', '2026-11-07'), null); // Samstag
+  assert.equal(sessionUtc('DE40', '2026-11-08'), null); // Sonntag
+  assert.equal(sessionUtc('US100', '2026-11-26'), null); // Thanksgiving
+  assert.equal(sessionUtc('DE40', '2026-12-24'), null); // Heiligabend Xetra
+  assert.equal(isTradingDay('DE40', '2026-11-26'), true); // US-Feiertag betrifft Xetra nicht
+  assert.notEqual(sessionUtc('BTCUSD', '2026-11-07'), null); // 24/7 ohne Kalender
+});
+
+test('Sessions: YAML-Leser und Kernzeit für cleanBars', () => {
+  const y = parseYaml('a:\n  b: "09:30" # Kommentar\n  c: [2026-01-01, 2026-12-25]\n  d: true\nx: "a # b"\n');
+  assert.deepEqual(y, { a: { b: '09:30', c: ['2026-01-01', '2026-12-25'], d: true }, x: 'a # b' });
+  assert.deepEqual(cleanSession('US100'), { from: '09:30', to: '15:55', tz: 'America/New_York' });
+  const S = loadSessions();
+  for (const [k, e] of Object.entries(S.epics)) {
+    assert.ok(e.calendar in S.calendars, k);
+    for (const s of Object.values(e.sessions)) assert.ok(/^\d\d:\d\d$/.test(s.open_local) && s.tz, k);
+    if (!e.orb_vwap) assert.ok(e.exclude_reason, k);
+  }
+});
+
+// ---- Strategie-Review FTMO (12.11.2026)
+test('Runner NAS_FTMO: Tageslimit zählt nur gefüllte Orders (d_ftmo seit 10.11.2026), ftmoCountAll = alter Stand', () => {
+  const bars = cleanBars(mk('2026-03-03', 60, '06:00', () => 100), { minBarsPerDay: 5 });
+  // 07:00 Order weit weg (füllt nie, verfällt nach 1 h), danach drei füllbare Orders im Abstand > 30 Min
+  const code = `const t = new Date().toISOString().slice(11, 16);
+    const S = { '07:00': [50, 40, 120, 1], '08:20': [99.5, 90, 101.5, 24], '09:00': [99.5, 89, 101.5, 24], '09:40': [99.5, 88, 101.5, 24] }[t];
+    if (!S) return [{ json: { signal: 'NONE' } }];
+    return [{ json: { signal: 'BUY', limitLevel: S[0], stopLevel: S[1], profitLevel: S[2], currentPrice: 100, expirationHours: S[3], size: 1 } }];`;
+  const v = (eng) => ({ id: 't', name: 't', family: 'NAS_FTMO', symbol: 'US100', code, featureKeys: [], opts: { ftmo: true },
+    engine: { startBalance: 100000, riskPercent: 0.5, newsFilter: false, ...eng } });
+  const neu = runLive({ bars: bars.bars, days: bars.days, variant: v({}) });
+  const alt = runLive({ bars: bars.bars, days: bars.days, variant: v({ ftmoCountAll: true }) });
+  assert.equal(neu.trades.length, 2); // verfallene Order zählt nicht, 09:40 blockiert (2 gefüllt)
+  assert.equal(alt.trades.length, 1); // alt: 07:00 + 08:20 platziert -> Tageslimit
+});
+
+test('Review-Patches FTMO: Punkt-Schwellen × Kurs/ref und Stundenfilter greifen, Basis unverändert', async () => {
+  const cat = buildCatalog();
+  const base = cat.find((v) => v.id === 'ftmo-basis');
+  const px = cat.find((v) => v.id === 'ftmo-rv-px20k');
+  assert.match(px.code, /const __px = currentClose \/ 20000;/);
+  assert.equal((px.code.match(/\* __px/g) || []).length, 8);
+  const h = cat.find((v) => v.id === 'ftmo-rv-h1516');
+  assert.match(h.code, /\[15,16\]\.includes\(__bh\)/);
+  assert.doesNotMatch(base.code, /__px|__bh/);
+  // Stundenfilter in der Sandbox: 15:10 Berlin (14:10 UTC im Winter) -> NONE mit Filtergrund
+  const run = compileNode(cat.find((v) => v.id === 'ftmo-rv-h15').code);
+  const clock = makeClock(); clock.now = Date.parse('2026-03-03T14:10:10Z');
+  const m15 = Array.from({ length: 250 }, (_, i) => ({ time: i, open: 100, high: 101, low: 99, close: 100 }));
+  const out = run({ items: [{ json: { body: m15 } }, { json: { body: m15.slice(0, 50) } }, { json: { lot_size: 100 } }], state: {}, DateCls: makeDate(clock), IntlObj: makeIntl(clock), logs: [] });
+  assert.match(out[0].json.error, /Berlin-Stunde 15/);
+});

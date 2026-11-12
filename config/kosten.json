@@ -1,0 +1,7 @@
+{
+  "_hinweis": "Kostenmodell für das Trade-Log (tools/tradelog.py). Spread steckt bereits in den Engine-Trades (Kauf Ask / Verkauf Bid) und wird nur ausgewiesen. Kommission, Zusatz-Slippage und Swap werden vom Engine-R abgezogen. Werte vom FTMO-Konto eintragen – aktuell Annahmen.",
+  "US100":  { "commission_per_lot": 0.0, "slippage_pts": 0.0, "swap_pts_per_night": 0.0, "point_value_per_lot": 1.0 },
+  "DE40":   { "commission_per_lot": 0.0, "slippage_pts": 0.0, "swap_pts_per_night": 0.0, "point_value_per_lot": 1.0 },
+  "EURUSD": { "commission_per_lot": 0.0, "slippage_pts": 0.0, "swap_pts_per_night": 0.0, "point_value_per_lot": 100000.0 },
+  "triple_swap_weekday": 3
+}

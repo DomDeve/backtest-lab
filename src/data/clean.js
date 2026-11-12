@@ -15,7 +15,8 @@ const r2 = (x) => Math.round(x * 100) / 100;
 export const CLEAN_DEFAULTS = {
   tz: 'Europe/Berlin',
   barMinutes: 5,
-  session: { from: '09:00', to: '17:30' }, // Kernzeit, für die Vollständigkeit geprüft wird
+  session: { from: '09:00', to: '17:30' }, // Kernzeit, für die Vollständigkeit geprüft wird (optional tz, sonst options.tz);
+  //                                         Standard nur für Altaufrufe – Werte kommen aus config/sessions.yaml (cleanSession)
   dropWeekends: true,
   maxMissingInSession: 3, // mehr fehlende Kerzen in der Kernzeit -> Tag "unvollständig"
   minBarsPerDay: 20, // weniger -> Tag wird verworfen (Feiertag/Rumpftag)
@@ -24,6 +25,8 @@ export const CLEAN_DEFAULTS = {
   repairSpreadOutliers: false, // true: Ask auf Bid + Median-Spread setzen
   spikeFactor: 12, // Kerzen-Range > Faktor x Median der letzten 100 -> markiert
   staleRun: 6, // so viele identische Kerzen in Folge -> "eingefrorener Feed" markiert
+  asDelivered: false, // true (Live-Code-Engine): Kerzen so lassen, wie der Broker sie liefert – Sonntagabend-Eröffnung,
+  //                     Rumpftage und gekreuzte Kurse bleiben drin; Wochenend- und Rumpftage nur nicht im Tagesindex (kein Handelstag)
 };
 
 export function cleanBars(raw, options = {}) {
@@ -41,7 +44,7 @@ export function cleanBars(raw, options = {}) {
   const byT = new Map();
   for (let b of raw) {
     if (!Number.isFinite(b.t) || keys.some((k) => !Number.isFinite(b[k]))) { rep.dropped.invalid++; continue; }
-    if (b.ao < b.bo - EPS || b.ac < b.bc - EPS || b.ah < b.bh - EPS || b.al < b.bl - EPS) {
+    if (!o.asDelivered && (b.ao < b.bo - EPS || b.ac < b.bc - EPS || b.ah < b.bh - EPS || b.al < b.bl - EPS)) {
       // Gekreuzte Kurse entstehen v. a. beim US-Open (Bid/Ask-Snapshot zu leicht anderen Zeitpunkten).
       // Leicht gekreuzt -> reparieren (Ask mindestens = Bid), stark gekreuzt -> verwerfen.
       const worst = Math.max(b.bo - b.ao, b.bc - b.ac, b.bh - b.ah, b.bl - b.al);
@@ -53,10 +56,10 @@ export function cleanBars(raw, options = {}) {
       } else { rep.dropped.askBelowBid++; continue; }
     }
     const brokenSide = (h, l, op, cl) => h < Math.max(op, cl) - EPS || l > Math.min(op, cl) + EPS || h < l - EPS;
-    if (brokenSide(b.bh, b.bl, b.bo, b.bc) || brokenSide(b.ah, b.al, b.ao, b.ac)) { rep.dropped.ohlcBroken++; continue; }
+    if (!o.asDelivered && (brokenSide(b.bh, b.bl, b.bo, b.bc) || brokenSide(b.ah, b.al, b.ao, b.ac))) { rep.dropped.ohlcBroken++; continue; }
     if (b.t % step !== 0) { rep.dropped.offGrid++; continue; }
     const L = local(b.t, o.tz);
-    if (o.dropWeekends && (L.weekday === 0 || L.weekday === 6)) { rep.dropped.weekend++; continue; }
+    if (o.dropWeekends && !o.asDelivered && (L.weekday === 0 || L.weekday === 6)) { rep.dropped.weekend++; continue; }
     if (byT.has(b.t)) {
       rep.dropped.duplicate++;
       const p = byT.get(b.t);
@@ -71,7 +74,7 @@ export function cleanBars(raw, options = {}) {
   const dayCount = {};
   for (const b of bars) dayCount[b.date] = (dayCount[b.date] || 0) + 1;
   bars = bars.filter((b) => {
-    if (dayCount[b.date] < o.minBarsPerDay) { rep.dropped.shortDay++; return false; }
+    if (!o.asDelivered && dayCount[b.date] < o.minBarsPerDay) { rep.dropped.shortDay++; return false; }
     return true;
   });
 
@@ -132,7 +135,7 @@ export function cleanBars(raw, options = {}) {
       days.push(cur);
     }
     cur.end = i;
-    cur.hms.add(b.hm);
+    cur.hms.add(o.session.tz && o.session.tz !== o.tz ? local(b.t, o.session.tz).hm : b.hm);
   });
   for (const d of days) {
     const missing = expected.filter((h) => !d.hms.has(h));
@@ -147,7 +150,9 @@ export function cleanBars(raw, options = {}) {
   rep.incompleteDays = days.filter((d) => !d.complete).map((d) => ({ date: d.date, missing: d.missing.length, first: d.missing.slice(0, 5) }));
   rep.period = bars.length ? { from: bars[0].date, to: bars[bars.length - 1].date } : null;
   rep.medianSpreadByHour = Object.fromEntries(Object.entries(medSpread).sort().map(([h, v]) => [h, r2(v)]));
-  return { bars, days, report: rep, options: o };
+  // Live-Engine: Wochenendkerzen bleiben in der Kerzenhistorie, sind aber kein Handelstag
+  const tradeDays = o.asDelivered ? days.filter((d) => d.wd !== 0 && d.wd !== 6 && dayCount[d.date] >= o.minBarsPerDay) : days;
+  return { bars, days: tradeDays, report: rep, options: o };
 }
 
 /** Kurztext für Konsole/Report */

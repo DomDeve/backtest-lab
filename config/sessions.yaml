@@ -1,0 +1,363 @@
+# Zentrale Session-Tabelle (Referenz-Eröffnung je Epic). Einzige Quelle für Handelszeiten im Lab.
+# Leser: src/core/sessions.js (JS) und tools/sessions.py (Python). Umrechnung nach UTC nur über die IANA-Zeitzone
+# (Intl bzw. zoneinfo), nie über feste Offsets.
+#
+# Felder je Epic:
+#   asset_class         index | fx | metal | energy | crypto | stock
+#   reference_exchange  Börse, deren Eröffnung als Referenz gilt
+#   calendar            Feiertagskalender (siehe calendars); Wochenende ist nie ein Handelstag
+#   sessions            name -> open_local / close_local / tz (eine oder mehrere Sessions, erste = Hauptsession)
+#   real_open           false = Konvention ohne echte Eröffnung (Krypto) -> kein ORB/VWAP
+#   orb_vwap            true = für ORB/VWAP-Tests zugelassen; sonst exclude_reason
+#   orb_vwap_sessions   optional: nur diese Sessions sind für ORB/VWAP zugelassen (Rest siehe validation)
+#   data                Ordner mit Capital-M5-Kerzen (nur dann Validierung gegen Kursdaten möglich)
+#   validation          Ergebnis von tools/sessions_validate.py (OK / Abweichung / keine klare Eröffnung / ungeprüft)
+#
+# Epic-Namen: Capital.com-Epics laut Lab-Daten (US100, DE40, EURUSD) bzw. übliche Capital-Bezeichnungen.
+# Nicht über die API bestätigte Epics stehen auf capital_checked: false (Schritt 2 offen, siehe tools/capital_hours.py).
+# Hartkodierte Zeiten in strategies-live/*.js (Original-Code der n8n-Bots) bleiben unverändert – sie werden nicht editiert.
+#
+# Schreibweise: eingeschränktes YAML (Einrückung 2 Leerzeichen, Maps, Inline-Listen [a, b], Skalare). Keine Anker/Mehrzeiler.
+
+version: 1
+
+calendars:
+  XNYS:
+    name: NYSE / Nasdaq (US-Aktien und US-Indizes)
+    holidays: [2024-01-01, 2024-01-15, 2024-02-19, 2024-03-29, 2024-05-27, 2024-06-19, 2024-07-04, 2024-09-02, 2024-11-28, 2024-12-25, 2025-01-01, 2025-01-09, 2025-01-20, 2025-02-17, 2025-04-18, 2025-05-26, 2025-06-19, 2025-07-04, 2025-09-01, 2025-11-27, 2025-12-25, 2026-01-01, 2026-01-19, 2026-02-16, 2026-04-03, 2026-05-25, 2026-06-19, 2026-07-03, 2026-09-07, 2026-11-26, 2026-12-25]
+  XETR:
+    name: Xetra (Deutschland)
+    holidays: [2024-01-01, 2024-03-29, 2024-04-01, 2024-05-01, 2024-12-24, 2024-12-25, 2024-12-26, 2024-12-31, 2025-01-01, 2025-04-18, 2025-04-21, 2025-05-01, 2025-12-24, 2025-12-25, 2025-12-26, 2025-12-31, 2026-01-01, 2026-04-03, 2026-04-06, 2026-05-01, 2026-12-24, 2026-12-25, 2026-12-26, 2026-12-31]
+  FX:
+    name: Devisen (nur weltweite Ruhetage)
+    holidays: [2024-12-25, 2025-01-01, 2025-12-25, 2026-01-01, 2026-12-25]
+  XPAR:
+    name: Euronext Paris (Euro Stoxx 50, CAC 40)
+    holidays: [2024-01-01, 2024-03-29, 2024-04-01, 2024-05-01, 2024-12-25, 2024-12-26, 2025-01-01, 2025-04-18, 2025-04-21, 2025-05-01, 2025-12-25, 2025-12-26, 2026-01-01, 2026-04-03, 2026-04-06, 2026-05-01, 2026-12-25, 2026-12-26]
+  XLON:
+    name: London Stock Exchange
+    holidays: [2024-01-01, 2024-03-29, 2024-04-01, 2024-05-06, 2024-05-27, 2024-08-26, 2024-12-25, 2024-12-26, 2025-01-01, 2025-04-18, 2025-04-21, 2025-05-05, 2025-05-26, 2025-08-25, 2025-12-25, 2025-12-26, 2026-01-01, 2026-04-03, 2026-04-06, 2026-05-04, 2026-05-25, 2026-08-31, 2026-12-25, 2026-12-28]
+  XTKS:
+    name: Tokyo Stock Exchange (nicht gepflegt – nur Volumenregel)
+    holidays: []
+  XASX:
+    name: ASX Sydney (nicht gepflegt – nur Volumenregel)
+    holidays: []
+  XHKG:
+    name: HKEX (nicht gepflegt – nur Volumenregel)
+    holidays: []
+  COMEX:
+    name: CME/COMEX/NYMEX Floor-Zeiten (Kalender wie NYSE)
+    holidays: [2024-01-01, 2024-01-15, 2024-02-19, 2024-03-29, 2024-05-27, 2024-06-19, 2024-07-04, 2024-09-02, 2024-11-28, 2024-12-25, 2025-01-01, 2025-01-20, 2025-02-17, 2025-04-18, 2025-05-26, 2025-06-19, 2025-07-04, 2025-09-01, 2025-11-27, 2025-12-25, 2026-01-01, 2026-01-19, 2026-02-16, 2026-04-03, 2026-05-25, 2026-06-19, 2026-07-03, 2026-09-07, 2026-11-26, 2026-12-25]
+  NONE:
+    name: kein Kalender (24/7)
+    holidays: []
+
+epics:
+  US100:
+    name: US Tech 100 (Nasdaq 100)
+    asset_class: index
+    reference_exchange: Nasdaq
+    calendar: XNYS
+    sessions:
+      cash:
+        open_local: "09:30"
+        close_local: "16:00"
+        tz: America/New_York
+    real_open: true
+    orb_vwap: true
+    data: data/raw/us100
+    capital_checked: false
+    validation: OK (Volumen- und Range-Sprung 09:30 NY, 12 Monate bis 03.11.2026)
+  US500:
+    name: US 500 (S&P 500)
+    asset_class: index
+    reference_exchange: NYSE
+    calendar: XNYS
+    sessions:
+      cash:
+        open_local: "09:30"
+        close_local: "16:00"
+        tz: America/New_York
+    real_open: true
+    orb_vwap: true
+    capital_checked: false
+    validation: ungeprüft (keine Kursdaten)
+  US30:
+    name: US 30 (Dow Jones)
+    asset_class: index
+    reference_exchange: NYSE
+    calendar: XNYS
+    sessions:
+      cash:
+        open_local: "09:30"
+        close_local: "16:00"
+        tz: America/New_York
+    real_open: true
+    orb_vwap: true
+    capital_checked: false
+    validation: ungeprüft (keine Kursdaten)
+  DE40:
+    name: Germany 40 (DAX)
+    asset_class: index
+    reference_exchange: Xetra
+    calendar: XETR
+    sessions:
+      cash:
+        open_local: "09:00"
+        close_local: "17:30"
+        tz: Europe/Berlin
+    real_open: true
+    orb_vwap: true
+    data: data/raw/de40
+    capital_checked: false
+    validation: OK (Volumen- und Range-Sprung 09:00 Berlin, 12 Monate bis 03.11.2026)
+  EU50:
+    name: Euro Stoxx 50
+    asset_class: index
+    reference_exchange: Euronext Paris / Eurex
+    calendar: XPAR
+    sessions:
+      cash:
+        open_local: "09:00"
+        close_local: "17:30"
+        tz: Europe/Paris
+    real_open: true
+    orb_vwap: true
+    capital_checked: false
+    validation: ungeprüft (keine Kursdaten)
+  FR40:
+    name: France 40 (CAC 40)
+    asset_class: index
+    reference_exchange: Euronext Paris
+    calendar: XPAR
+    sessions:
+      cash:
+        open_local: "09:00"
+        close_local: "17:30"
+        tz: Europe/Paris
+    real_open: true
+    orb_vwap: true
+    capital_checked: false
+    validation: ungeprüft (keine Kursdaten)
+  UK100:
+    name: UK 100 (FTSE 100)
+    asset_class: index
+    reference_exchange: London Stock Exchange
+    calendar: XLON
+    sessions:
+      cash:
+        open_local: "08:00"
+        close_local: "16:30"
+        tz: Europe/London
+    real_open: true
+    orb_vwap: true
+    capital_checked: false
+    validation: ungeprüft (keine Kursdaten)
+  J225:
+    name: Japan 225 (Nikkei 225)
+    asset_class: index
+    reference_exchange: Tokyo Stock Exchange
+    calendar: XTKS
+    sessions:
+      cash:
+        open_local: "09:00"
+        close_local: "15:00"
+        tz: Asia/Tokyo
+    real_open: true
+    orb_vwap: true
+    capital_checked: false
+    validation: ungeprüft (keine Kursdaten)
+  AU200:
+    name: Australia 200 (ASX 200)
+    asset_class: index
+    reference_exchange: ASX
+    calendar: XASX
+    sessions:
+      cash:
+        open_local: "10:00"
+        close_local: "16:00"
+        tz: Australia/Sydney
+    real_open: true
+    orb_vwap: true
+    capital_checked: false
+    validation: ungeprüft (keine Kursdaten)
+  HK50:
+    name: Hong Kong 50 (Hang Seng)
+    asset_class: index
+    reference_exchange: HKEX
+    calendar: XHKG
+    sessions:
+      cash:
+        open_local: "09:30"
+        close_local: "16:00"
+        tz: Asia/Hong_Kong
+    real_open: true
+    orb_vwap: true
+    capital_checked: false
+    validation: ungeprüft (keine Kursdaten)
+  EURUSD:
+    name: EUR/USD
+    asset_class: fx
+    reference_exchange: Interbankenmarkt (London / New York)
+    calendar: FX
+    sessions:
+      london:
+        open_local: "07:00"
+        close_local: "16:00"
+        tz: Europe/London
+      newyork:
+        open_local: "08:30"
+        close_local: "16:00"
+        tz: America/New_York
+    real_open: true
+    orb_vwap: true
+    data: data/raw/eurusd
+    capital_checked: false
+    validation: london OK (Sprung 07:00 London); newyork Abweichung (Range-Sprung 08:30, Volumen-Sprung 09:30 NY – zwei Ereignisse)
+    orb_vwap_sessions: [london]
+    note: Startwerte 08:00 London / 08:00 NY am 07.11.2026 auf die gemessenen Sprünge umgestellt (London 07:00 = Frankfurt-Eröffnung, NY 08:30 = US-Daten)
+  GBPUSD:
+    name: GBP/USD
+    asset_class: fx
+    reference_exchange: Interbankenmarkt (London / New York)
+    calendar: FX
+    sessions:
+      london:
+        open_local: "08:00"
+        close_local: "16:00"
+        tz: Europe/London
+      newyork:
+        open_local: "08:00"
+        close_local: "16:00"
+        tz: America/New_York
+    real_open: true
+    orb_vwap: true
+    capital_checked: false
+    validation: ungeprüft (keine Kursdaten)
+  USDJPY:
+    name: USD/JPY
+    asset_class: fx
+    reference_exchange: Interbankenmarkt (London / New York)
+    calendar: FX
+    sessions:
+      london:
+        open_local: "08:00"
+        close_local: "16:00"
+        tz: Europe/London
+      newyork:
+        open_local: "08:00"
+        close_local: "16:00"
+        tz: America/New_York
+    real_open: true
+    orb_vwap: true
+    capital_checked: false
+    validation: ungeprüft (keine Kursdaten)
+  GOLD:
+    name: Gold (Spot)
+    asset_class: metal
+    reference_exchange: COMEX (Floor-Zeiten)
+    calendar: COMEX
+    sessions:
+      comex:
+        open_local: "08:20"
+        close_local: "13:30"
+        tz: America/New_York
+    real_open: true
+    orb_vwap: true
+    capital_checked: false
+    validation: ungeprüft (keine Kursdaten)
+  SILVER:
+    name: Silber (Spot)
+    asset_class: metal
+    reference_exchange: COMEX (Floor-Zeiten)
+    calendar: COMEX
+    sessions:
+      comex:
+        open_local: "08:20"
+        close_local: "13:30"
+        tz: America/New_York
+    real_open: true
+    orb_vwap: true
+    capital_checked: false
+    validation: ungeprüft (keine Kursdaten)
+    note: Startwert laut Vorgabe; COMEX-Silber offiziell 08:25–13:25 – mit Kursdaten prüfen
+  OIL_CRUDE:
+    name: Rohöl WTI
+    asset_class: energy
+    reference_exchange: NYMEX (Floor-Zeiten)
+    calendar: COMEX
+    sessions:
+      nymex:
+        open_local: "09:00"
+        close_local: "14:30"
+        tz: America/New_York
+    real_open: true
+    orb_vwap: true
+    capital_checked: false
+    validation: ungeprüft (keine Kursdaten)
+  BTCUSD:
+    name: Bitcoin
+    asset_class: crypto
+    reference_exchange: keine (24/7)
+    calendar: NONE
+    sessions:
+      day:
+        open_local: "00:00"
+        close_local: "23:59"
+        tz: UTC
+    real_open: false
+    orb_vwap: false
+    exclude_reason: keine echte Eröffnung (24/7, 00:00 UTC ist nur Konvention)
+    capital_checked: false
+    validation: nicht anwendbar
+  ETHUSD:
+    name: Ethereum
+    asset_class: crypto
+    reference_exchange: keine (24/7)
+    calendar: NONE
+    sessions:
+      day:
+        open_local: "00:00"
+        close_local: "23:59"
+        tz: UTC
+    real_open: false
+    orb_vwap: false
+    exclude_reason: keine echte Eröffnung (24/7, 00:00 UTC ist nur Konvention)
+    capital_checked: false
+    validation: nicht anwendbar
+
+# Aktien-CFDs: Heimatbörse aus Epic/Instrumentname ableiten (tools/sessions.py: stock_home()).
+# Regeln werden der Reihe nach geprüft; Treffer -> Sessions und Kalender der Börse. Kein Treffer -> unbekannt (kein ORB/VWAP).
+stock_rules:
+  us:
+    match: "(?i)(\\bNASDAQ\\b|\\bNYSE\\b|\\bUSD\\b|\\.US$|_US$|Inc\\.?$|Corp\\.?$)"
+    exchange: NYSE / Nasdaq
+    calendar: XNYS
+    open_local: "09:30"
+    close_local: "16:00"
+    tz: America/New_York
+  de:
+    match: "(?i)(\\bXETRA\\b|\\.DE$|_DE$|\\bAG$|\\bSE$)"
+    exchange: Xetra
+    calendar: XETR
+    open_local: "09:00"
+    close_local: "17:30"
+    tz: Europe/Berlin
+  uk:
+    match: "(?i)(\\bLSE\\b|\\.L$|_UK$|\\bplc$|\\bGBX\\b)"
+    exchange: London Stock Exchange
+    calendar: XLON
+    open_local: "08:00"
+    close_local: "16:30"
+    tz: Europe/London
+  fr:
+    match: "(?i)(\\.PA$|_FR$|\\bS\\.?A\\.?$)"
+    exchange: Euronext Paris
+    calendar: XPAR
+    open_local: "09:00"
+    close_local: "17:30"
+    tz: Europe/Paris
+
+# Feiertage nach Volumen (< 30 % des Durchschnitts der Hauptsession) erzeugt tools/sessions_validate.py in
+# config/sessions_no_trading_days.json – beide Leser behandeln diese Tage zusätzlich als „kein Handelstag“.

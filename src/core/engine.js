@@ -89,12 +89,13 @@ export function runBacktest({ bars, days, strategy, params = {}, engine = {}, ra
     balance += pnl;
     const t = {
       id: trades.length + 1, strategy: strategy.name, date: pos.date, wd: pos.wd, dir: pos.dir,
-      signalHm: pos.signalHm, entryHm: pos.entryHm, entryT: pos.entryT, entry: r(pos.entry, 2), stop: r(pos.stop0, 2), tp: r(pos.tp, 2),
-      exitHm: B.hm, exitSignalHm: extra.exitSignalHm ?? B.hm, exitDate: B.date, exitT: B.t, exit: r(price, 2), reason, pts: r(pts, 2), riskPts: r(pos.riskPts, 2),
+      // Preise/Punkte auf 5 Stellen wie runner.js (2 Stellen machten FX-Trades unbrauchbar: EURUSD-Punkte = 0)
+      signalHm: pos.signalHm, entryHm: pos.entryHm, entryT: pos.entryT, entry: r(pos.entry, 5), stop: r(pos.stop0, 5), tp: r(pos.tp, 5),
+      exitHm: B.hm, exitSignalHm: extra.exitSignalHm ?? B.hm, exitDate: B.date, exitT: B.t, exit: r(price, 5), reason, pts: r(pts, 5), riskPts: r(pos.riskPts, 5),
       R: r(pts / pos.riskPts, 3), size: pos.size, riskMoney: r(pos.riskMoney, 2), pnl: r(pnl, 2), balanceAfter: r(balance, 2),
-      mfePts: r(pos.mfe, 2), maePts: r(pos.mae, 2), mfeR: r(pos.mfe / pos.riskPts, 3), maeR: r(pos.mae / pos.riskPts, 3),
+      mfePts: r(pos.mfe, 5), maePts: r(pos.mae, 5), mfeR: r(pos.mfe / pos.riskPts, 3), maeR: r(pos.mae / pos.riskPts, 3),
       barsHeld: i - pos.entryIdx + 1, minutesHeld: Math.round((B.t - pos.entryT) / 60000) + 5,
-      conflict: !!extra.conflict, spreadEntry: r(pos.spreadEntry, 2), entryIdx: pos.entryIdx, exitIdx: i,
+      conflict: !!extra.conflict, spreadEntry: r(pos.spreadEntry, 5), entryIdx: pos.entryIdx, exitIdx: i,
       features: { ...pos.features, ...(dayCtx[pos.date] || {}) },
     };
     trades.push(t);
