@@ -1,0 +1,68 @@
+{
+ "id": "RV-2026-11-12-02",
+ "datum": "2026-11-12",
+ "bot": "NAS F618ATR FTMO",
+ "variant": "ftmo-rv-h15",
+ "status": "verworfen",
+ "stufe": "freigabe (K1)",
+ "idee": "keine Signale 15:00–15:59 Berlin (US-Eröffnung)",
+ "ergebnis": {
+  "trades": 829,
+  "avg_r": 0.0896,
+  "haelften": [
+   0.0012,
+   0.0964
+  ],
+  "drittel": [
+   -0.1554,
+   0.0826,
+   0.096
+  ],
+  "delta": {
+   "halves": [
+    0.0484,
+    0.0407
+   ],
+   "thirds": [
+    0.0,
+    0.0258,
+    0.0452
+   ],
+   "besser_ueberall": false
+  },
+  "drittel_nach_trades": {
+   "kandidat": [
+    -0.02,
+    0.225,
+    0.064
+   ],
+   "basis": [
+    -0.05,
+    0.158,
+    0.037
+   ]
+  },
+  "plateau": {
+   "h1415": 0.121,
+   "h1516": 0.115
+  }
+ },
+ "hinweis": "Kalender-Drittel 1 (2012–2016, 14 Trades, keiner um 15 Uhr) identisch mit Basis (Δ 0) -> uninformativ; Hälften und Trade-Drittel alle besser",
+ "laeufe": [
+  "out/review/2026-11-12/duka/ftmo-rv-h15",
+  "out/review/2026-11-12/duka/ftmo-rv-h1415",
+  "out/review/2026-11-12/duka/ftmo-rv-h1516"
+ ],
+ "pruefung": {
+  "K1_coinflip_p": 0.055,
+  "K2_auswahl_p": 0.986,
+  "K2_nur_review_p": 0.306,
+  "K3_plateau": true,
+  "K4_t": 1.51,
+  "K4_haelften": true,
+  "K4_schlechtester_tag_pct": -4.3,
+  "ftmo_p_verletzung_monat": 0.0,
+  "tresor_geoeffnet": false,
+  "protokoll": "out/review/2026-11-12/pruefer/protokoll.md"
+ }
+}

@@ -6,7 +6,7 @@
 //        des Laufordners als Suchraum; in jedem Münzwurf-Lauf wird – wie bei unserer Suche – die BESTE Variante genommen.
 //        p_auswahl je Variante = Anteil Läufe, in denen die beste Zufallsvariante ≥ Sim-Ergebnis dieser Variante (max-T nach Westfall-Young).
 //        Münze je Einstiegszeitpunkt und Markt GETEILT -> Varianten mit gleichen Signalen bleiben korreliert wie in echt.
-//   node tools/coinflip.js --select --name legacy --ids a,b,c [--run out/live-voll] -> eigener Suchraum (auch marktübergreifend),
+//   node tools/coinflip.js --select --name legacy --ids a,b,c [--run out/live-voll[,ordner2…]] [--symbol US100] -> eigener Suchraum (auch marktübergreifend/über mehrere Laufordner),
 //        wird in auswahl.json unter markets[<name>] ergänzt (bestehende Einträge bleiben).
 //
 // Je Trade bleiben Einstiegskerze, Einstiegspreis, SL-Abstand und TP-Abstand (in Punkten) gleich; nur die Richtung wird per Münzwurf
@@ -19,6 +19,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { loadBars } from '../src/data/load.js';
+import { sealBars } from '../src/core/tresor.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const MAX_MS = 14 * 86400000; // 10 Handelstage ≈ 14 Kalendertage
@@ -85,23 +86,34 @@ export function coinflip(O, { runs = 1000, seed = 7 } = {}) {
     p5: dist[Math.floor(runs * 0.05)], p95: dist[Math.floor(runs * 0.95)], p, longShare: O.filter((o) => o.orig === 'BUY').length / n };
 }
 
+/** Kerzen je Datenquelle wie in bin/live.js: Dukascopy-Läufe sehen die Tresor-Jahre nicht (config/tresor.json), Capital unverändert. */
+export function barsForSource(bars, symbol, src = 'capital', years) {
+  let last = -1; const b = bars.slice().sort((x, y) => x.t - y.t).filter((x) => (x.t > last ? ((last = x.t), true) : false));
+  return src === 'dukascopy' ? sealBars(b, symbol, years).bars : b;
+}
+
 function loadBarsFor(symbol, cache, src = 'capital') {
-  const key = src + ':' + symbol;
+  const key = (src || 'capital') + ':' + symbol;
   if (!cache[key]) { const dir = path.join(ROOT, src === 'dukascopy' ? 'data/dukascopy' : 'data/raw', symbol.toLowerCase());
     const { bars } = loadBars(fs.readdirSync(dir).filter((f) => /MINUTE_5_.*\.csv$/.test(f)).map((f) => path.join(dir, f)));
-    let last = -1; cache[key] = bars.sort((x, y) => x.t - y.t).filter((b) => (b.t > last ? ((last = b.t), true) : false)); }
+    cache[key] = barsForSource(bars, symbol, src); }
   return cache[key];
 }
 
-function mainSelect(RUN, OUT, runs, seed, name = null, only = null) {
-  const ids = fs.readdirSync(path.join(ROOT, RUN)).filter((d) => fs.existsSync(path.join(ROOT, RUN, d, 'result.json')) && (!only || only.includes(d))).sort();
+// RUN darf mehrere Laufordner enthalten (Komma-getrennt) -> ein gemeinsamer Suchraum. Id, die in mehreren Ordnern vorkommt -> „<ordner>/<id>“.
+function mainSelect(RUN, OUT, runs, seed, name = null, only = null, symbol = null) {
+  const dirs = RUN.split(',').filter(Boolean);
+  const all = dirs.flatMap((r) => fs.readdirSync(path.join(ROOT, r)).filter((d) => fs.existsSync(path.join(ROOT, r, d, 'result.json')) && (!only || only.includes(d))).sort().map((id) => ({ r, id })));
+  const cnt = {}; for (const x of all) cnt[x.id] = (cnt[x.id] || 0) + 1;
   const groups = {}; const cache = {};
-  for (const id of ids) {
-    const d = JSON.parse(fs.readFileSync(path.join(ROOT, RUN, id, 'result.json'), 'utf8'));
+  for (const { r, id: vid } of all) {
+    const id = cnt[vid] > 1 ? `${r}/${vid}` : vid;
+    const d = JSON.parse(fs.readFileSync(path.join(ROOT, r, vid, 'result.json'), 'utf8'));
+    if (symbol && d.symbol !== symbol) continue;
     if (!d.symbol || !d.trades?.length || d.trades[0].entryT === undefined) { process.stderr.write(`(${id} übersprungen) `); continue; }
     const m = name || (d.family === 'NAS_FTMO' || d.opts?.ftmo ? 'FTMO (US100)' : d.symbol);
     const O = outcomes(loadBarsFor(d.symbol, cache, d.data), d.trades).map((o) => ({ ...o, t: d.symbol + ':' + o.t })); // Münze je Markt + Zeitpunkt
-    (groups[m] ||= []).push({ id, name: d.name, O });
+    (groups[m] ||= []).push({ id, name: d.name + (cnt[vid] > 1 ? ` [${r}]` : ''), O });
     process.stderr.write(`${id} `);
   }
   const out = {}; const f = (x) => (x >= 0 ? '+' : '') + x.toFixed(3).replace('.', ',');
@@ -125,7 +137,7 @@ function mainSelect(RUN, OUT, runs, seed, name = null, only = null) {
 
 function main() {
   const a = process.argv.slice(2); const arg = (k, d) => { const i = a.indexOf('--' + k); return i >= 0 ? a[i + 1] : d; };
-  if (a.includes('--select')) return mainSelect(arg('run', 'out/live'), arg('out', 'out/coinflip'), +arg('runs', 1000), +arg('seed', 7), arg('name', null), arg('ids', null)?.split(','));
+  if (a.includes('--select')) return mainSelect(arg('run', 'out/live'), arg('out', 'out/coinflip'), +arg('runs', 1000), +arg('seed', 7), arg('name', null), arg('ids', null)?.split(','), arg('symbol', null));
   const RUN = arg('run', 'out/live-voll'), OUT = arg('out', 'out/coinflip'), runs = +arg('runs', 1000), seed = +arg('seed', 7);
   const want = arg('variants', null)?.split(',');
   const ids = fs.readdirSync(path.join(ROOT, RUN)).filter((d) => fs.existsSync(path.join(ROOT, RUN, d, 'result.json')) && (!want || want.includes(d))).sort();
@@ -139,7 +151,7 @@ function main() {
   fs.mkdirSync(path.join(ROOT, OUT), { recursive: true });
   fs.writeFileSync(path.join(ROOT, OUT, 'ergebnis.json'), JSON.stringify({ run: RUN, runs, seed, created: new Date().toISOString(), results: res }, null, 1));
   const f = (x, k = 3) => (x === undefined || x === null || Number.isNaN(x) ? '–' : (x >= 0 ? '+' : '') + x.toFixed(k).replace('.', ','));
-  const md = ['# Coinflip-Test je Strategie', '', `Quelle: \`${RUN}\` (Kerzen data/raw = Capital), ${runs} Münzwurf-Läufe, Seed ${seed}. R ohne Broker-Kosten, Spread drin.`,
+  const md = ['# Coinflip-Test je Strategie', '', `Quelle: \`${RUN}\` (Kerzen je Lauf: data/raw = Capital bzw. data/dukascopy ohne Tresor-Jahre), ${runs} Münzwurf-Läufe, Seed ${seed}. R ohne Broker-Kosten, Spread drin.`,
     'Spalten: **Engine** = Ø R der echten Engine; **Sim** = Ø R der Original-Richtungen im vereinfachten Simulator (Kalibrierung);',
     '**Münzwurf Ø / 5–95 %** = Verteilung bei zufälliger Richtung; **p** = Anteil Münzwurf-Läufe ≥ Sim (klein = Richtung trägt Information);',
     '**immer Long/Short** = alle Trades in eine Richtung (Drift-Anteil).', '',

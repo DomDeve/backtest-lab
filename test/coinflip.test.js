@@ -32,3 +32,13 @@ test('Auswahl mittesten: beste von N wird bestraft, echtes Signal bleibt erkennb
   const r2 = coinflipSelect([...sets, { id: 's', name: 's', O: smart }], { runs: 300 });
   assert.equal(r2.best.id, 's'); assert.ok(r2.best.pSel < 0.01);
 });
+
+test('Kerzen je Datenquelle: Dukascopy ohne Tresor-Jahre, Capital unverändert, sortiert ohne Doppelte', async () => {
+  const { barsForSource } = await import('../tools/coinflip.js');
+  const T = (y, m = 0) => Date.UTC(y, m, 2, 10);
+  const bars = [T(2015), T(2014), T(2013, 11), T(2014, 5), T(2015)].map((t) => ({ t }));
+  const ys = new Set([2014]);
+  assert.deepEqual(barsForSource(bars, 'US100', 'dukascopy', ys).map((b) => b.t), [T(2013, 11), T(2015)]);
+  assert.deepEqual(barsForSource(bars, 'US100', 'capital', ys).map((b) => b.t), [T(2013, 11), T(2014), T(2014, 5), T(2015)]);
+  assert.deepEqual(barsForSource(bars, 'US100', undefined, ys).length, 4);
+});

@@ -43,6 +43,27 @@
    "tresor": null,
    "forward": null,
    "auswahl": "legacy"
+  },
+  {
+   "id": "ftmo-rv-h15",
+   "markt": "FTMO (US100)",
+   "_herkunft": "Strategie-Review 12.11.2026: FTMO-Basis ohne Signale 15:00–15:59 Berlin (ftmoHourPatch). Idee aus Muster-Analyse Capital 2024–26. Läufe Dukascopy, Entwicklungsjahre (Tresor ausgeblendet).",
+   "quellen": {
+    "coinflip": "out/review/2026-11-12/pruefer/coinflip/ergebnis.json",
+    "auswahl": "out/review/2026-11-12/pruefer/auswahl/auswahl.json",
+    "tage": "out/review/2026-11-12/duka/tagesrendite.json"
+   },
+   "auswahl": "review-plus-live",
+   "plateau": {
+    "groesse": "Stundenfenster",
+    "run": "out/review/2026-11-12/duka",
+    "nachbarn": [
+     "ftmo-rv-h1415",
+     "ftmo-rv-h1516"
+    ]
+   },
+   "tresor": null,
+   "forward": null
   }
  ]
 }

@@ -11,6 +11,7 @@ Kriterien (Schwellen in config/freigabe.json, vorher festgelegt):
   K5 Tresor:          einmal geöffnet und bestanden (Eintrag in config/freigabe.json + config/tresor_protokoll.jsonl)
   K6 Forward-Test:    bestanden (Eintrag)
 Freigabe nur, wenn alle Kriterien erfüllt sind (entfällt zählt als erfüllt).
+Quellen: global unter "quellen"; ein Kandidat kann einzelne Quellen mit eigenem "quellen"-Eintrag ersetzen.
 """
 import os, json
 
@@ -25,6 +26,7 @@ def mean_r(run, vid):
 
 
 def check(c, K, src):
+    src = {**src, **(c.get('quellen') or {})}  # Kandidat darf eigene Quellen haben (z. B. Review-Läufe auf Dukascopy)
     out = {}
     cf = {r['id']: r for r in (J(src['coinflip']) or {}).get('results', [])}.get(c['id'])
     out['K1 Coinflip'] = (None, 'kein Lauf') if not cf else (cf['p'] < K['coinflip_p'], 'p %.3f' % cf['p'])
