@@ -9,3 +9,5 @@ data/indicators/
 # Cloud-Review
 .DS_Store
 cloud-data/daten.tar.zst
+
+__pycache__/
