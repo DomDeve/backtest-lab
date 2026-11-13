@@ -393,3 +393,12 @@ Portierte Engine, DE40/US100/EURUSD M5, Zufallseinstiege (SL 3 × ATR14, TP 1R/2
   Wirkung nach Kerzenschluss, neuer SL ab nächster Kerze). Test Capital 2024–26 (`out/trail/*`): jede Form schlechter als feste SL/TP –
   FTMO-Basis +0,191 -> BE +0,046, Bot-Config (BE 1R, 50 % bei 2R, Trail 1R) +0,034, Trail ab 1R +0,013R; F618ATR +0,131 -> +0,02 … +0,07R;
   Fib50 LB2 ≈ unverändert. Plateau (Trail 0,75/1/1,5R) durchgehend schlechter. -> Trailing nicht übernehmen.
+
+## DE40 Confluence 3 FTMO (13.11.2026)
+
+- Code-Node aus d_ftmo (`strategies-live/ftmo/DE40_Confluence_3_FTMO.js`), Familie `DE40_FTMO` in runner.js (DAX Combined Check1:
+  Invalidierung SL±8, 30-Min-Sperre, Dublette, Tageslimit 2 gefüllte je Berliner Tag, bei Tagesstopp läuft die Strategie nicht), Variante
+  `ftmo-de40-c3`, Test `test/de40-ftmo.test.js`. Bridge-Format liefert `tick_volume` (wie live). Code nutzt Volumen (LVN/HVN/POC/VWAP) ->
+  Backtest nur angenähert (cTrader-Tickvolumen live). Ergebnis: Capital 2024–26 204 Tr. Ø −0,168R, Dukascopy ohne Tresor 542 Tr. Ø −0,174R
+  (t −2,48). Konto mit NAS kombiniert: P(beide Phasen) Capital 0,88 -> 0,53. Bekannte Abweichung NAS_FTMO: Strategie wird bei Tagesstopp
+  im Lab noch aufgerufen (live nicht).

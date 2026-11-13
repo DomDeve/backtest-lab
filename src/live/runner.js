@@ -26,6 +26,7 @@ const ACTIVE = {
   NAS_FTMO: { tz: 'UTC', from: '07:00', to: '18:59' },
   EURUSD: { tz: 'UTC', from: '06:00', to: '18:59' }, // utcHour >= 19 || < 6 -> NONE
   DE40: { tz: 'Europe/Berlin', from: '10:00', to: '17:29' }, // Phase CLOSED / OPENING_RANGE -> NONE
+  DE40_FTMO: { tz: 'Europe/Berlin', from: '10:00', to: '17:29' }, // gleicher Zeitfilter (getTradingPhase)
 };
 
 export const LIVE_ENGINE_DEFAULTS = {
@@ -277,6 +278,61 @@ export function runLive({ bars, days, variant, engine = {}, range = {}, params =
       if (shouldCancel) cancel(open[0], T);
       const gtd = Date.parse(String(out.goodTillDate) + 'Z');
       placeLimit(T, L, { dir, level: Number(out.limitLevel), stop: Number(out.stopLevel), tp: Number(out.profitLevel), expiresT: Number.isFinite(gtd) ? gtd : T + 4 * H, features: feat });
+    },
+    // d_ftmo (Version 31f089ff): Code Strategie DE40 Confluence 3 -> Set Trading Data DE1 -> Signal DE1 (signal != NONE && limitLevel > 0)
+    //   -> GET ORDERS/POSITIONS DAX (magic 20260201) -> DAX Combined Check1 -> NO OPEN ORDER/POSITION? DE1 -> Should Cancel? DE1
+    //   -> [CANCEL ORDER DAX] -> Prepare Order Body DE1 (Limit, Seitenprüfung SL/TP) -> PLACE ORDER DAX -> Track Own Order DE1.
+    // Eingang Merge DAX: [0] M5 ×300, [1] EURUSD M1 ×3 (nur Lot-Umrechnung), [2] H1 ×250, [3] M15 ×400 – Bridge, nur abgeschlossene Kerzen.
+    // Kein „Risk & News Check“/GET DAILY PL im DAX-Zweig (nur NAS); Schutz-Check (Tagesstopp) und News-Filter liegen davor (Hauptschleife).
+    DE40_FTMO(i, T, L, B) {
+      // Schutz-Check STOP -> der Lauf endet vor News-Filter und Strategie (Strategie-Zustand bleibt unberührt)
+      if (haltDay === L.date) return block('FTMO Tagesverlust-Sperre');
+      const [m5, h1, m15] = views(i, [['M5', 300, false, 'bridge'], ['H1', 250, false, 'bridge'], ['M15', 400, false, 'bridge']]);
+      const fx = E.eurusd ?? 1.1; // EURUSD-Kurs nur für die Lot-Größe im Code (Backtest rechnet das Risiko selbst)
+      const items = [{ json: { body: m5 } }, { json: { body: [{ time: T / 1000, open: fx, high: fx, low: fx, close: fx, tick_volume: 1, spread: 0 }] } }, { json: { body: h1 } }, { json: { body: m15 } }];
+      const out = callStrategy(i, items);
+      if (out.signal === 'NONE' || !(Number(out.limitLevel) > 0)) return; // Signal DE1
+      stats.signals++;
+      const dir = out.signal;
+      const feat = tickFeatures(out, L, dir);
+      if (failsFilters(filters, feat) || !inRange(L.date)) { stats.filtered++; return; }
+      // ---- DAX Combined Check1 (1:1)
+      const nowMs = clock.now;
+      const price = Number(out.currentPrice) || 0;
+      const lim = Number(out.limitLevel);
+      const open = myOpenOrders();
+      let shouldCancel = false, invalid = false;
+      if (open.length && price > 0) {
+        const o = open[0];
+        const ref = o.dir === 'BUY' ? o.stop + 8 : o.stop - 8; // SL_PUFFER 8
+        invalid = o.dir === 'BUY' ? price < ref : price > ref;
+        shouldCancel = invalid; // Signal liegt hier immer vor
+      }
+      const activeOrder = open.length > 0 && !invalid;
+      // Gefüllt-Status: Should-Cancel markiert die Order als storniert (auch wenn danach blockiert wird);
+      // gefüllt = nicht mehr pending und vor Ablauf − 60 s verschwunden, nicht storniert (Auswertung zum Prüfzeitpunkt).
+      if (shouldCancel) { const c = own.find((x) => x.orderId === open[0].id); if (c) c.cancelled = true; }
+      const pendingIds = new Set(open.map((o) => o.id));
+      for (const o of own) {
+        if (o.filled || o.cancelled) continue;
+        if (!pendingIds.has(o.orderId) && nowMs < o.placedAt + (o.expHours || 8) * H - 60000) o.filled = true;
+      }
+      const recent = own.some((o) => o.placedAt >= nowMs - 30 * 60000);
+      const dup = own.find((o) => o.placedAt >= nowMs - 24 * H && o.direction === dir && Math.abs(o.level - lim) < 0.5);
+      const today = local(nowMs, 'Europe/Berlin').date;
+      const count = own.filter((o) => o.filled && local(o.placedAt, 'Europe/Berlin').date === today).length;
+      if (activeOrder) return block('Aktive Order');
+      if (positions.length) return block('Aktive Position');
+      if (recent) return block('Order < 30 Min');
+      if (count >= 2) return block('Tageslimit 2 (gefüllt)');
+      if (dup) return block('Dublette');
+      if (shouldCancel) cancel(open[0], T); // CANCEL ORDER DAX
+      // ---- Prepare Order Body DE1: wirft bei falscher Lage von SL/TP -> keine Order
+      const st = Number(out.stopLevel), tp = Number(out.profitLevel), size = Number(out.size) || 0;
+      if (!(size > 0 && st > 0 && tp > 0 && lim > 0)) return block('Order-Body ungültig');
+      if (dir === 'BUY' ? !(st < lim && tp > lim) : !(st > lim && tp < lim)) return block('Order-Body SL/TP falsch');
+      // Bridge: Gültigkeit = Platzierung + expiration_hours (ganze Stunden, ≈ bis 19:00 Berlin)
+      placeLimit(T, L, { dir, level: lim, stop: st, tp, expiresT: T + (Number(out.expirationHours) || 8) * H, features: { ...feat, lots: size } });
     },
     // d_ilikebigbots: Code Strategie EURUSD Cx -> Signal EURUSD -> Position Check -> MARKET bzw. LIMIT (C5)
     EURUSD(i, T, L, B) {

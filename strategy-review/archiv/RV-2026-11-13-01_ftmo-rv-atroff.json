@@ -1,0 +1,131 @@
+{
+ "id": "RV-2026-11-13-01",
+ "datum": "2026-11-13",
+ "bot": "NAS F618ATR FTMO",
+ "variant": "ftmo-rv-atroff",
+ "status": "verworfen",
+ "stufe": "suche",
+ "idee": "ATR-Pause aus (USE_ATR_FILTER false), lange Historie",
+ "ergebnis": {
+  "trades": 1296,
+  "avg_r": 0.0045,
+  "haelften": [
+   -0.0118,
+   0.0059
+  ],
+  "drittel": [
+   -0.4013,
+   0.0706,
+   -0.0032
+  ],
+  "delta": {
+   "halves": [
+    0.0354,
+    -0.0498
+   ],
+   "thirds": [
+    -0.2459,
+    0.0138,
+    -0.054
+   ],
+   "besser_ueberall": false
+  }
+ },
+ "raster": {
+  "ftmo-rv-atr12": {
+   "trades": 1196,
+   "avg_r": 0.0285,
+   "haelften": [
+    -0.0471,
+    0.0344
+   ],
+   "drittel": [
+    -0.411,
+    0.1181,
+    0.018
+   ],
+   "delta": {
+    "halves": [
+     0.0001,
+     -0.0213
+    ],
+    "thirds": [
+     -0.2556,
+     0.0613,
+     -0.0328
+    ],
+    "besser_ueberall": false
+   }
+  },
+  "ftmo-rv-atr14": {
+   "trades": 1044,
+   "avg_r": 0.0477,
+   "haelften": [
+    -0.007,
+    0.052
+   ],
+   "drittel": [
+    -0.2728,
+    0.1474,
+    0.0335
+   ],
+   "delta": {
+    "halves": [
+     0.0402,
+     -0.0037
+    ],
+    "thirds": [
+     -0.1174,
+     0.0906,
+     -0.0173
+    ],
+    "besser_ueberall": false
+   }
+  },
+  "ftmo-rv-atr18": {
+   "trades": 746,
+   "avg_r": 0.0343,
+   "haelften": [
+    0.1112,
+    0.0287
+   ],
+   "drittel": [
+    0.1822,
+    0.0005,
+    0.0379
+   ],
+   "delta": {
+    "halves": [
+     0.1584,
+     -0.027
+    ],
+    "thirds": [
+     0.3376,
+     -0.0563,
+     -0.0129
+    ],
+    "besser_ueberall": false
+   }
+  }
+ },
+ "basis": {
+  "trades": 877,
+  "avg_r": 0.0484,
+  "haelften": [
+   -0.0472,
+   0.0557
+  ],
+  "drittel": [
+   -0.1554,
+   0.0568,
+   0.0508
+  ]
+ },
+ "grund": "Raster ATR_MIN_PCT aus/1,2/1,4/1,8 (Basis 1,6): keine Stufe in beiden Hälften und allen Dritteln besser. Aus: Ø +0,005R (1296 Tr.), 1,2: +0,028R, 1,4: +0,048R (= Basis, Hälfte 2 schlechter), 1,8: +0,034R (Hälfte 2 schlechter). Die ATR-Pause kostet Trades, aber die zusätzlichen Trades sind ≈ 0R.",
+ "laeufe": [
+  "out/review/2026-11-13/duka/ftmo-rv-atroff",
+  "out/review/2026-11-13/duka/ftmo-rv-atr12",
+  "out/review/2026-11-13/duka/ftmo-rv-atr14",
+  "out/review/2026-11-13/duka/ftmo-rv-atr18"
+ ]
+}

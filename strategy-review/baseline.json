@@ -1,5 +1,5 @@
 {
- "stand": "2026-11-12",
+ "stand": "2026-11-13",
  "konto": "FTMO 2-Step 100k (d_ftmo)",
  "n8n": {
   "workflow": "d_ftmo",
@@ -90,10 +90,100 @@
   {
    "bot": "DE40 Confluence 3",
    "code_node": "Code Strategie DE40 Confluence 3",
-   "variant_id": null,
-   "aktiv": false,
-   "paritaet": "läuft in n8n (d_ftmo), im Lab nicht vorhanden -> laut Review-Regel nicht aktiv; FTMO-Kontosimulation ohne diesen Bot unvollständig"
+   "variant_id": "ftmo-de40-c3",
+   "lab_datei": "strategies-live/ftmo/DE40_Confluence_3_FTMO.js",
+   "aktiv": true,
+   "paritaet": "Code-Node 1:1 exportiert (d_ftmo 31f089ff, 13.11.2026), DAX Combined Check1 als Familie DE40_FTMO in runner.js. Volumen (LVN/HVN/POC/VWAP) aus Capital/Dukascopy statt cTrader-Tickvolumen -> nur angenähert.",
+   "kennzahlen": {
+    "capital_2024_2026": {
+     "trades": 204,
+     "avg_r": -0.1684,
+     "zeitraum": [
+      "2024-01-02",
+      "2026-11-03"
+     ]
+    },
+    "dukascopy_entwicklung": {
+     "trades": 542,
+     "avg_r": -0.1745,
+     "zeitraum": [
+      "2013-10-01",
+      "2026-11-06"
+     ]
+    }
+   }
   }
  ],
- "hinweis": "Kennzahlen netto (Kosten src/core/costs.js). Dukascopy = Entwicklungsjahre ohne Tresor (2014/2017/2020/2023)."
+ "hinweis": "Kennzahlen netto (Kosten src/core/costs.js). Dukascopy = Entwicklungsjahre ohne Tresor (2014/2017/2020/2023).",
+ "konto_kombiniert": {
+  "hinweis": "NAS F618ATR FTMO + DE40 Confluence 3, Trades je Tag zusammengelegt (tools/review_eval.py)",
+  "capital_2024_2026": {
+   "trades": 631,
+   "avg_r": 0.0481,
+   "trades_monat": 18.54,
+   "r_monat": 0.89,
+   "t_tage": 0.73,
+   "schlechtester_tag_pct": -2.04,
+   "max_dd_pct": -33.47,
+   "haelften": [
+    0.164,
+    -0.0211
+   ],
+   "drittel": [
+    0.1156,
+    0.0594,
+    0.0187
+   ],
+   "ftmo_bootstrap": {
+    "p_phase1": 0.682,
+    "p_beide": 0.53,
+    "median_tage_beide": 220
+   },
+   "funded": {
+    "r_month_p10": -6.93,
+    "r_month_p50": 0,
+    "r_month_p90": 11.05,
+    "p_violation_month": 0.0097,
+    "starts": 720
+   },
+   "zeitraum": [
+    "2024-01-02",
+    "2026-11-03"
+   ]
+  },
+  "dukascopy_entwicklung": {
+   "trades": 1419,
+   "avg_r": -0.0367,
+   "trades_monat": 7.99,
+   "r_monat": -0.29,
+   "t_tage": -0.82,
+   "schlechtester_tag_pct": -4.8,
+   "max_dd_pct": -35.81,
+   "haelften": [
+    -0.0656,
+    -0.0308
+   ],
+   "drittel": [
+    -0.0696,
+    -0.0301,
+    -0.0341
+   ],
+   "ftmo_bootstrap": {
+    "p_phase1": 0.34,
+    "p_beide": 0.182,
+    "median_tage_beide": 409
+   },
+   "funded": {
+    "r_month_p10": -4.92,
+    "r_month_p50": 0,
+    "r_month_p90": 4.33,
+    "p_violation_month": 0.006,
+    "starts": 3841
+   },
+   "zeitraum": [
+    "2012-01-19",
+    "2026-11-06"
+   ]
+  }
+ }
 }

@@ -267,3 +267,16 @@ test('Review-Patches FTMO: Punkt-Schwellen × Kurs/ref und Stundenfilter greifen
   const out = run({ items: [{ json: { body: m15 } }, { json: { body: m15.slice(0, 50) } }, { json: { lot_size: 100 } }], state: {}, DateCls: makeDate(clock), IntlObj: makeIntl(clock), logs: [] });
   assert.match(out[0].json.error, /Berlin-Stunde 15/);
 });
+
+test('Review-Patches FTMO 13.11.2026: ATR-Pause und TP-Extension setzen genau eine Konstante', () => {
+  const cat = buildCatalog();
+  const base = cat.find((v) => v.id === 'ftmo-basis').code;
+  const cases = [['ftmo-rv-atroff', 'USE_ATR_FILTER', 'false'], ['ftmo-rv-atr12', 'ATR_MIN_PCT', '1.2'], ['ftmo-rv-atr14', 'ATR_MIN_PCT', '1.4'],
+    ['ftmo-rv-atr18', 'ATR_MIN_PCT', '1.8'], ['ftmo-rv-ext05', 'FIB_EXTENSION', '0.5'], ['ftmo-rv-ext0786', 'FIB_EXTENSION', '0.786'], ['ftmo-rv-ext1', 'FIB_EXTENSION', '1']];
+  for (const [id, k, val] of cases) {
+    const c = cat.find((v) => v.id === id).code;
+    assert.match(c, new RegExp(`const ${k}\\s*=\\s*${val.replace('.', '\\.')};`), id);
+    const diff = c.split('\n').filter((l, i) => l !== base.split('\n')[i]);
+    assert.equal(diff.length, 1, id);
+  }
+});

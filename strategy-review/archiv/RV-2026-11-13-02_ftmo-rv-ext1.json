@@ -1,0 +1,105 @@
+{
+ "id": "RV-2026-11-13-02",
+ "datum": "2026-11-13",
+ "bot": "NAS F618ATR FTMO",
+ "variant": "ftmo-rv-ext1",
+ "status": "verworfen",
+ "stufe": "suche",
+ "idee": "TP-Extension FIB_EXTENSION 1,0 statt 0,618",
+ "ergebnis": {
+  "trades": 782,
+  "avg_r": 0.0878,
+  "haelften": [
+   -0.0892,
+   0.102
+  ],
+  "drittel": [
+   -0.3772,
+   0.0476,
+   0.1047
+  ],
+  "delta": {
+   "halves": [
+    -0.042,
+    0.0463
+   ],
+   "thirds": [
+    -0.2218,
+    -0.0092,
+    0.0539
+   ],
+   "besser_ueberall": false
+  }
+ },
+ "raster": {
+  "ftmo-rv-ext05": {
+   "trades": 906,
+   "avg_r": -0.003,
+   "haelften": [
+    -0.137,
+    0.0074
+   ],
+   "drittel": [
+    -0.1377,
+    -0.0337,
+    0.0053
+   ],
+   "delta": {
+    "halves": [
+     -0.0898,
+     -0.0483
+    ],
+    "thirds": [
+     0.0177,
+     -0.0905,
+     -0.0455
+    ],
+    "besser_ueberall": false
+   }
+  },
+  "ftmo-rv-ext0786": {
+   "trades": 823,
+   "avg_r": 0.0513,
+   "haelften": [
+    0.0284,
+    0.0531
+   ],
+   "drittel": [
+    0.1856,
+    0.0084,
+    0.0564
+   ],
+   "delta": {
+    "halves": [
+     0.0756,
+     -0.0026
+    ],
+    "thirds": [
+     0.341,
+     -0.0484,
+     0.0056
+    ],
+    "besser_ueberall": false
+   }
+  }
+ },
+ "basis": {
+  "trades": 877,
+  "avg_r": 0.0484,
+  "haelften": [
+   -0.0472,
+   0.0557
+  ],
+  "drittel": [
+   -0.1554,
+   0.0568,
+   0.0508
+  ]
+ },
+ "grund": "FIB_EXTENSION 0,5/0,786/1,0 (Basis 0,618): 1,0 Ø +0,088R (782 Tr.), aber Hälfte 1 Δ −0,042R, Drittel 1+2 Δ −0,22 / −0,01R; 0,786 Ø +0,051R, Hälfte 2 knapp schlechter (Δ −0,003R); 0,5 Ø −0,003R. Kein Kandidat besser überall; Anstieg mit TP-Abstand nur in der 2. Hälfte (2019–26).",
+ "laeufe": [
+  "out/review/2026-11-13/duka/ftmo-rv-ext1",
+  "out/review/2026-11-13/duka/ftmo-rv-ext05",
+  "out/review/2026-11-13/duka/ftmo-rv-ext0786"
+ ]
+}

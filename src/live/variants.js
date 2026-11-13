@@ -486,12 +486,21 @@ export function buildCatalog() {
         base: bid, desc: `${b.name}, Swing-Erkennung: ${label}`, code: nasSwingPatch(b.code, cfg, lb) });
     }
   }
+  // ---- DE40 Confluence 3 FTMO (d_ftmo, live seit Nov 2026): Code-Node 1:1, Order-Prüfung DAX Combined Check1 (Familie DE40_FTMO)
+  V.push({ id: 'ftmo-de40-c3', name: 'DE40 Confluence 3 FTMO (LVN v3.4)', family: 'DE40_FTMO', symbol: 'DE40', group: 'DE40 Confluence 3 FTMO',
+    code: read('ftmo/DE40_Confluence_3_FTMO.js'), featureKeys: DE_FEAT, exitVariants: EXITS_DE, engine: ENG_FTMO, base: null,
+    desc: 'Live-Code d_ftmo: Bridge-Kerzen (nur abgeschlossen, Mitte, tick_volume), ADX 20, Distanz 15–100, Confluence 3, Mittag aus, Limit bis ≈ 19:00, Tageslimit 2 gefüllte, 0,5 % fix',
+    opts: { ftmo: true } });
   // ---- Strategie-Review FTMO (strategy-review/experiments.jsonl)
   const RV = 'FTMO Strategie-Review';
   for (const ref of [16000, 20000, 25000]) V.push({ ...ftmo(`ftmo-rv-px${ref / 1000}k`, `Review: Punkt-Schwellen × Kurs/${ref}`, `RANGE_MIN, MA_DIST_MIN, SL_BUF, SL_MAX, SL_MIN proportional zum Kurs (Referenz ${ref})`, (c) => nasPxScalePatch(c, { ref })), group: RV });
   V.push({ ...ftmo('ftmo-rv-h15', 'Review: ohne 15 Uhr Berlin', 'keine Signale 15:00–15:59 Berlin (US-Eröffnung)', (c) => ftmoHourPatch(c, { hours: [15] })), group: RV });
   V.push({ ...ftmo('ftmo-rv-h1415', 'Review: ohne 14+15 Uhr Berlin', 'Plateau-Nachbar: keine Signale 14:00–15:59 Berlin', (c) => ftmoHourPatch(c, { hours: [14, 15] })), group: RV });
   V.push({ ...ftmo('ftmo-rv-h1516', 'Review: ohne 15+16 Uhr Berlin', 'Plateau-Nachbar: keine Signale 15:00–16:59 Berlin', (c) => ftmoHourPatch(c, { hours: [15, 16] })), group: RV });
+  // 13.11.2026: ATR-Pause auf langer Historie (RV-2026-11-13-01) und TP-Extension (RV-2026-11-13-02)
+  V.push({ ...ftmo('ftmo-rv-atroff', 'Review: ohne ATR-Pause', 'USE_ATR_FILTER false (keine Pause bei Tages-ATR14 < 1,6 %)', (c) => setConst(c, 'USE_ATR_FILTER', false)), group: RV });
+  for (const t of [1.2, 1.4, 1.8]) V.push({ ...ftmo(`ftmo-rv-atr${String(t).replace('.', '')}`, `Review: ATR-Pause < ${t} %`, `ATR_MIN_PCT ${t} statt 1,6`, (c) => setConst(c, 'ATR_MIN_PCT', t)), group: RV });
+  for (const e of [0.5, 0.786, 1.0]) V.push({ ...ftmo(`ftmo-rv-ext${String(e).replace('.', '')}`, `Review: TP-Extension ${e}`, `FIB_EXTENSION ${e} statt 0,618`, (c) => setConst(c, 'FIB_EXTENSION', e)), group: RV });
   return V;
 }
 

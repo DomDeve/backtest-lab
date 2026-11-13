@@ -5,16 +5,18 @@ Regeln: eine Änderung je Experiment, Suche nur auf Entwicklungsdaten (Dukascopy
 
 ## Offen
 
-1. **DE40 Confluence 3 ins Lab holen** (läuft in d_ftmo, fehlt im Lab) – Code-Node per `tools/export-code-nodes.py` nach
-   `strategies-live/ftmo/`, DAX Combined Check (d_ftmo) in `runner.js` portieren, Familie `DE40_FTMO`. Ohne das ist die
-   FTMO-Kontosimulation unvollständig. Achtung: DE40 auf Dukascopy nur eingeschränkt testbar, wenn der Code Volumen nutzt.
+1. **DE40 Confluence 3: Entscheidung Dominique** (seit 13.11.2026 im Lab, `ftmo-de40-c3`) – Backtest klar negativ
+   (Capital −0,17R, Dukascopy −0,17R t −2,5), senkt P(beide Phasen) des Kontos von 0,88 auf 0,53 (Capital). Frage an Dominique,
+   ob ein Vorschlag „Bot in d_ftmo deaktivieren“ ausgearbeitet werden soll. Danach ggf. Varianten (TP 1–1,5R, ohne Confluence) –
+   Volumen-Abhängigkeit beachten (cTrader-Tickvolumen ≠ Capital/Dukascopy).
 2. **Stundenfenster um die US-Eröffnung** – Plateau-Nachbarn von `ftmo-rv-h15` (ohne 14+15 bzw. 15+16 Uhr) waren besser
    (+0,121 / +0,115R). Nur als neues Experiment mit eigenem Grund, nicht als Nachjustierung von h15.
-3. **ATR-Pause (ATR_MIN_PCT 1,6 %) auf langer Historie** – legt ganze Monate still (06/2024, 07–09/2025, 01/2026, 09/2026).
-   Capital-Raster 1,2–2,0 % existiert (`nas-atr-*`), lange Historie fehlt.
+3. ~~ATR-Pause auf langer Historie~~ – erledigt 13.11.2026 (RV-2026-11-13-01, verworfen).
 4. **Wochentag-Muster auf Dukascopy-Entwicklungsjahren** (nicht Capital) – Muster-Analyse auf dem langen Lauf.
-5. **Ausstieg**: TP-Extension (FIB_EXTENSION) auf langer Historie – Trailing war schlechter, TP-Lage noch nicht geprüft.
+5. ~~TP-Extension~~ – erledigt 13.11.2026 (RV-2026-11-13-02, 0,5/0,786/1,0 verworfen). Offen: TP in R statt Fib-Extension.
 6. **Zweites Instrument für das Konto** (Realitätscheck: ein Bot liefert ~2R/Monat) – nur mit Live-Code-Variante im Lab.
+7. **NAS_FTMO-Familie: Tagesstopp-Reihenfolge** – im Lab wird die NAS-Strategie bei aktivem Tagesstopp noch aufgerufen und erst danach
+   blockiert, live läuft sie gar nicht (Befund Port DE40, 13.11.2026). Wirkung vermutlich klein, prüfen.
 
 ## Nur notiert (gesperrt – Risikomanagement)
 

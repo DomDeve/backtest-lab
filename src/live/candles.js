@@ -90,10 +90,12 @@ export function toCapital(b) {
   return c;
 }
 
-/** cTrader-Bridge-Format (FTMO). Preise: Mitte aus Capital-Bid/Ask (FTMO-Kurse weichen leicht ab). */
+/** cTrader-Bridge-Format (FTMO). Preise: Mitte aus Capital-Bid/Ask (FTMO-Kurse weichen leicht ab).
+ *  Felder wie live (GET /candles, Ausführung 92941): time, open, high, low, close, tick_volume, spread.
+ *  tick_volume = Volumen der Datenquelle (Capital bzw. Dukascopy-Ticks) – nicht das cTrader-Tickvolumen. */
 export function toBridge(b) {
   if (b._br) return b._br;
-  const c = { time: b.t / 1000, open: (b.bo + b.ao) / 2, high: (b.bh + b.ah) / 2, low: (b.bl + b.al) / 2, close: (b.bc + b.ac) / 2, volume: b.vol };
+  const c = { time: b.t / 1000, open: (b.bo + b.ao) / 2, high: (b.bh + b.ah) / 2, low: (b.bl + b.al) / 2, close: (b.bc + b.ac) / 2, tick_volume: b.vol, spread: 0 };
   Object.defineProperty(b, '_br', { value: c, enumerable: false });
   return c;
 }
